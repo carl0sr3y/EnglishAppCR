@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarjetas de idiomas</title>
+<script>try{document.documentElement.dataset.theme=(JSON.parse(localStorage.getItem("theme"))==="light")?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
+<style>
+:root{
+  --paper:#F2F5F8; --surface:#FFFFFF; --text:#12203A; --muted:#51607A;
+  --border:#12203A; --line:#C9D3E0; --btn-bg:#12203A; --btn-text:#FFFFFF;
+  --ultra:#2447D6; --ochre:#D9A23A; --green:#2E7D5B; --red:#B4233C;
+  --ok:#2E7D5B; --no:#B4233C; --fb-ok:#EAF4EF; --fb-bad:#F8E9EC; --focus:#2447D6;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --paper:#0D1424; --surface:#151F36; --text:#E8EDF7; --muted:#9FADC8;
+  --border:#5E7096; --line:#25314E; --btn-bg:#E8EDF7; --btn-text:#0D1424;
+  --ultra:#3558E6; --ochre:#E0AB45; --green:#2F8A62; --red:#E0566D;
+  --ok:#62CF9C; --no:#FF8A9C; --fb-ok:#112B22; --fb-bad:#38151F; --focus:#8EA7FF;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{margin:0;color:var(--text);background:var(--paper);font-family:var(--sans);font-size:17px;line-height:1.5}
+.wrap{max-width:780px;margin:0 auto;padding:24px 18px 72px}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+h1{font-family:var(--serif);font-size:clamp(28px,6vw,40px);line-height:1.1;margin:0;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:24px;margin:34px 0 6px}
+h3{margin:0;font-size:19px}
+p{margin:0 0 10px}
+.muted{color:var(--muted)}
+.small{font-size:15px}
+
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.topbtns{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.who{color:var(--muted);font-size:15px}
+
+.btn{padding:10px 16px;border:2px solid var(--btn-bg);border-radius:4px;background:var(--btn-bg);color:var(--btn-text);font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;line-height:1.3}
+.btn.ghost{background:transparent;color:var(--text);border-color:var(--border)}
+.btn.danger{background:transparent;color:var(--no);border-color:var(--no)}
+.btn.sm{padding:6px 12px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;padding:11px 13px;border:2px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text)}
+textarea{min-height:90px;resize:vertical}
+label{display:block;font-weight:600;margin:12px 0 4px}
+select{width:auto}
+
+/* acceso */
+.authbox{max-width:420px;margin:48px auto 0}
+.authbox h1{margin-bottom:6px}
+.seg{display:flex;margin:22px 0 4px;border:2px solid var(--border);border-radius:4px;overflow:hidden}
+.seg button{flex:1;padding:10px;border:0;background:transparent;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button[aria-selected="true"]{background:var(--btn-bg);color:var(--btn-text)}
+.msg{min-height:1.5em;margin-top:12px;font-size:15px}
+.msg.bad{color:var(--no)} .msg.good{color:var(--ok)}
+
+/* inicio */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:22px}
+.stat{border:2px solid var(--border);border-radius:4px;background:var(--surface);padding:10px 12px}
+.stat b{display:block;font-family:var(--serif);font-size:28px;line-height:1.1}
+.stat span{font-size:13px;color:var(--muted)}
+.deck{border:2px solid var(--border);border-radius:4px;background:var(--surface);padding:14px 16px;margin-top:12px}
+.deckhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:4px}
+.tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:3px;color:#fff;background:var(--ultra)}
+.tag.ex{background:var(--green)} .tag.sh{background:var(--ochre);color:#12203A}
+.empty{border:2px dashed var(--border);border-radius:4px;padding:18px;color:var(--muted)}
+details{border:2px solid var(--border);border-radius:4px;background:var(--surface);padding:0 16px;margin-top:12px}
+summary{cursor:pointer;font-weight:600;padding:12px 0}
+details[open]{padding-bottom:16px}
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.55;background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:12px;overflow-x:auto;white-space:pre;margin:8px 0}
+.errlist{margin:10px 0 0;padding:0;list-style:none}
+.errlist li{padding:6px 10px;border-left:4px solid var(--no);background:var(--fb-bad);margin-bottom:6px;font-size:15px}
+.prev{margin:10px 0 0;padding:10px 12px;border-left:4px solid var(--ok);background:var(--fb-ok);font-size:15px}
+.inline{display:flex;align-items:center;gap:8px;margin:12px 0 0;font-weight:400}
+.inline input{width:auto}
+
+/* estudio */
+.meta{display:flex;justify-content:space-between;color:var(--muted);font-size:15px;margin:18px 0 10px}
+.swatch{border:2px solid var(--border);border-radius:4px;background:var(--surface);overflow:hidden}
+.swatch-top{display:flex;justify-content:space-between;gap:12px;padding:8px 16px;font-weight:600;font-size:15px;color:#fff;background:var(--ultra)}
+.swatch-top.ex{background:var(--green)}
+.swatch-body{padding:22px 18px 20px}
+.es{font-family:var(--serif);font-size:clamp(28px,7vw,44px);line-height:1.12;margin:0 0 14px}
+.sentence{font-size:19px;margin:0 0 18px;max-width:54ch}
+.answer{flex:1 1 220px;min-width:0;font-size:19px}
+.hint{margin:12px 0 0;color:var(--muted);font-size:15px;min-height:1.5em}
+.feedback{margin-top:18px;padding:14px 16px;border-left:6px solid var(--ok);background:var(--fb-ok)}
+.feedback.bad{border-left-color:var(--no);background:var(--fb-bad)}
+.feedback strong{font-size:19px}
+.feedback p{margin:6px 0 0}
+.done{padding:26px 20px;border:2px dashed var(--border);border-radius:4px;background:var(--surface)}
+.done h2{margin:0 0 8px}
+
+@media (max-width:560px){.stats{grid-template-columns:repeat(2,1fr)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== Acceso ===== -->
+  <section id="auth" hidden>
+    <div class="authbox">
+      <div class="top"><h1>Tarjetas de idiomas</h1><button class="btn ghost sm themebtn" type="button">Modo claro</button></div>
+      <p class="muted">Aprende con repetición espaciada y lleva tu progreso.</p>
+      <div class="seg" role="tablist">
+        <button type="button" role="tab" id="tabLogin" aria-selected="true">Entrar</button>
+        <button type="button" role="tab" id="tabRegister" aria-selected="false">Crear cuenta</button>
+      </div>
+      <form id="authForm" autocomplete="on">
+        <label for="username">Usuario</label>
+        <input type="text" id="username" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+        <div id="inviteBox" hidden>
+          <label for="invite">Código de invitación</label>
+          <input type="text" id="invite" name="invite" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <p class="muted small" id="authHelp" hidden>Usuario de 3 a 24 caracteres. Contraseña de al menos 8.</p>
+        <div class="row" style="margin-top:16px"><button class="btn" type="submit" id="authSubmit">Entrar</button></div>
+        <div class="msg" id="authMsg" role="alert"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===== Inicio ===== -->
+  <section id="home" hidden>
+    <div class="top">
+      <h1>Mis mazos</h1>
+      <div class="topbtns">
+        <span class="who" id="who"></span>
+        <button class="btn ghost sm themebtn" type="button">Modo claro</button>
+        <button class="btn ghost sm" type="button" id="btnLogout">Salir</button>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <h2>Tus mazos</h2>
+    <p class="muted small">Elige un mazo y escribe las respuestas de memoria. Lo que aciertas vuelve a los 1, 3, 7, 14 y 30 días.</p>
+    <div class="row" style="margin:8px 0">
+      <label for="newPerDay" style="margin:0;font-weight:400">Tarjetas nuevas por día y mazo:</label>
+      <select id="newPerDay" aria-label="Tarjetas nuevas por día">
+        <option>0</option><option>3</option><option selected>5</option><option>10</option><option>15</option><option>20</option>
+      </select>
+    </div>
+    <div id="decks"></div>
+
+    <h2>Importar contenido</h2>
+    <p class="muted small">Pega texto en el formato de abajo o sube un archivo .txt. La app lo convierte en tarjetas y ejercicios.</p>
+    <details id="formatHelp">
+      <summary>Ver el formato</summary>
+      <p class="small">Cada mazo empieza con <b>@deck</b> (tarjetas) o <b>@exercises</b> (ejercicios con hueco). Los campos van separados por <b>|</b>. Las líneas vacías y las que empiezan con <b>//</b> se ignoran.</p>
+      <pre id="formatExample">@deck Arte: primeras palabras
+brush | pincel | I use a thin brush for the small details.
+watercolor | acuarela | I paint faces with watercolor. | watercolour
+
+@exercises Presente continuo
+I ___ painting a portrait now. => am | Con -ing siempre necesitas am/is/are.
+She ___ writing code. => is / 's</pre>
+      <p class="small muted">Tarjeta: <b>inglés | español | frase que contenga la palabra | alternativas (opcional, separadas por ;)</b><br>Ejercicio: <b>frase con ___ => respuesta1 / respuesta2 | explicación (opcional)</b></p>
+      <button class="btn ghost sm" type="button" id="btnCopyFormat">Copiar ejemplo</button>
+    </details>
+    <label for="importText">Texto</label>
+    <textarea id="importText" rows="8" placeholder="@deck Mi primer mazo&#10;palabra | traducción | frase de ejemplo con la palabra"></textarea>
+    <div class="row" style="margin-top:10px">
+      <input type="file" id="importFile" accept=".txt,.md,text/plain" aria-label="Subir archivo de texto" style="width:auto;border:0;padding:0;background:transparent">
+    </div>
+    <label class="inline" id="shareRow" hidden><input type="checkbox" id="shareAll"> Compartir estos mazos con todos los usuarios</label>
+    <div class="row" style="margin-top:12px">
+      <button class="btn ghost" type="button" id="btnReview">Revisar</button>
+      <button class="btn" type="button" id="btnSave">Guardar mazos</button>
+    </div>
+    <div id="importResult" role="status"></div>
+
+    <h2>Informe para compartir con una IA</h2>
+    <p class="muted small">Descarga tus resultados del día o de la semana. El informe trae instrucciones y el formato de importación, así que puedes pegarlo en una IA y te devolverá ejercicios nuevos listos para importar aquí.</p>
+    <div class="row">
+      <a class="btn" id="repDay" href="#" download>Informe de hoy</a>
+      <a class="btn" id="repWeek" href="#" download>Informe de la semana</a>
+      <button class="btn ghost" type="button" id="btnCopyWeek">Copiar informe semanal</button>
+      <a class="btn ghost sm" id="repJson" href="#" download>JSON</a>
+    </div>
+    <div class="msg" id="repMsg" role="status"></div>
+
+    <h2>Nota del día</h2>
+    <p class="muted small">Cómo te fue, qué error repetiste, qué harás mañana. Se incluye en el informe.</p>
+    <textarea id="note" rows="4" maxlength="4000" aria-label="Nota del día"></textarea>
+    <div class="msg good" id="noteMsg"></div>
+  </section>
+
+  <!-- ===== Estudio ===== -->
+  <section id="study" hidden>
+    <div class="top">
+      <button class="btn ghost sm" type="button" id="btnBack">Volver a mis mazos</button>
+      <button class="btn ghost sm themebtn" type="button">Modo claro</button>
+    </div>
+    <div id="studyArea"></div>
+  </section>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+function today() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
+
+let user = null, config = {inviteRequired: false}, mode = 'login';
+
+/* ---------- API ---------- */
+async function api(path, opts) {
+  opts = opts || {};
+  const res = await fetch(path, {
+    method: opts.method || 'GET',
+    headers: opts.body ? {'Content-Type': 'application/json'} : {},
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    credentials: 'same-origin'
+  });
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* sin cuerpo */ }
+  if (res.status === 401 && !path.startsWith('/api/login') && !path.startsWith('/api/register')) { showAuth(); throw new Error('auth'); }
+  if (!res.ok) { const e = new Error((data && data.error) || 'Error inesperado.'); e.data = data; throw e; }
+  return data;
+}
+
+/* ---------- vistas ---------- */
+function show(id) { ['auth', 'home', 'study'].forEach(v => { $(v).hidden = v !== id; }); window.scrollTo(0, 0); }
+function showAuth() { user = null; show('auth'); setMode('login'); $('password').value = ''; $('username').focus(); }
+
+/* ---------- tema ---------- */
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.querySelectorAll('.themebtn').forEach(b => { b.textContent = t === 'dark' ? 'Modo claro' : 'Modo oscuro'; b.setAttribute('aria-pressed', t === 'dark'); });
+}
+document.querySelectorAll('.themebtn').forEach(b => b.addEventListener('click', () => {
+  const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  lsSet('theme', t); applyTheme(t);
+}));
+applyTheme(document.documentElement.dataset.theme || 'dark');
+
+/* ---------- acceso ---------- */
+function setMode(m) {
+  mode = m;
+  $('tabLogin').setAttribute('aria-selected', m === 'login');
+  $('tabRegister').setAttribute('aria-selected', m === 'register');
+  $('authSubmit').textContent = m === 'login' ? 'Entrar' : 'Crear cuenta';
+  $('inviteBox').hidden = !(m === 'register' && config.inviteRequired);
+  $('authHelp').hidden = m !== 'register';
+  $('password').setAttribute('autocomplete', m === 'login' ? 'current-password' : 'new-password');
+  $('authMsg').textContent = '';
+}
+$('tabLogin').onclick = () => setMode('login');
+$('tabRegister').onclick = () => setMode('register');
+$('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = $('authMsg'); msg.className = 'msg'; msg.textContent = '';
+  $('authSubmit').disabled = true;
+  try {
+    const body = {username: $('username').value, password: $('password').value};
+    if (mode === 'register') body.invite = $('invite').value;
+    const r = await api(mode === 'login' ? '/api/login' : '/api/register', {method: 'POST', body});
+    user = r.user; $('password').value = '';
+    await loadHome();
+  } catch (err) { msg.className = 'msg bad'; msg.textContent = err.message; }
+  $('authSubmit').disabled = false;
+});
+$('btnLogout').onclick = async () => { try { await api('/api/logout', {method: 'POST'}); } catch (e) { /* */ } showAuth(); };
+
+/* ---------- inicio ---------- */
+async function loadHome() {
+  show('home');
+  $('who').textContent = user.username + (user.is_admin ? ' (admin)' : '');
+  $('shareRow').hidden = !user.is_admin;
+  const t = today();
+  const np = lsGet('newPerDay'); if (np !== null) $('newPerDay').value = String(np);
+  const [d, s, n] = await Promise.all([api('/api/decks?today=' + t), api('/api/stats?today=' + t), api('/api/note?day=' + t)]);
+  renderStats(s); renderDecks(d.decks);
+  $('note').value = n.text;
+  $('repDay').href = '/api/report?period=day&date=' + t;
+  $('repWeek').href = '/api/report?period=week&date=' + t;
+  $('repJson').href = '/api/report?period=week&date=' + t + '&format=json';
+}
+$('newPerDay').onchange = () => lsSet('newPerDay', Number($('newPerDay').value));
+
+function renderStats(s) {
+  const pct = s.week.total ? Math.round(s.week.ok * 100 / s.week.total) + ' %' : '–';
+  $('stats').innerHTML =
+    '<div class="stat"><b>' + s.streak + '</b><span>' + (s.streak === 1 ? 'día seguido' : 'días seguidos') + '</span></div>' +
+    '<div class="stat"><b>' + s.today + '</b><span>respuestas hoy</span></div>' +
+    '<div class="stat"><b>' + pct + '</b><span>aciertos (7 días)</span></div>' +
+    '<div class="stat"><b>' + s.boxes[5] + '</b><span>tarjetas dominadas</span></div>';
+}
+
+function renderDecks(decks) {
+  const el = $('decks');
+  if (!decks.length) { el.innerHTML = '<div class="empty">Aún no tienes mazos. Importa uno abajo (puedes empezar con el ejemplo del formato).</div>'; return; }
+  el.innerHTML = decks.map(d => {
+    const isCards = d.kind === 'cards';
+    const meta = isCards
+      ? d.total + ' tarjetas · ' + d.due + ' por repasar · ' + d.fresh + ' sin empezar'
+      : d.total + ' ejercicios';
+    return '<article class="deck"><div class="deckhead"><h3>' + esc(d.title) + '</h3>' +
+      '<span class="tag ' + (isCards ? '' : 'ex') + '">' + (isCards ? 'Tarjetas' : 'Ejercicios') + '</span>' +
+      (d.shared ? '<span class="tag sh">Compartido</span>' : '') + '</div>' +
+      '<p class="muted small">' + meta + (d.shared ? ' · de ' + esc(d.owner) : '') + '</p>' +
+      '<div class="row"><button class="btn" data-act="study" data-id="' + d.id + '">Estudiar</button>' +
+      (d.can_delete ? '<button class="btn danger sm" data-act="del" data-id="' + d.id + '" data-title="' + esc(d.title) + '">Eliminar</button>' : '') +
+      '</div></article>';
+  }).join('');
+}
+$('decks').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const id = Number(b.dataset.id);
+  try {
+    if (b.dataset.act === 'study') await startStudy(id);
+    if (b.dataset.act === 'del') {
+      if (!confirm('¿Eliminar el mazo "' + b.dataset.title + '"? Se borra su progreso, pero tus resultados anteriores siguen en los informes.')) return;
+      await api('/api/decks/' + id, {method: 'DELETE'}); await loadHome();
+    }
+  } catch (err) { if (err.message !== 'auth') alert(err.message); }
+});
+
+/* ---------- importar ---------- */
+$('btnCopyFormat').onclick = async () => {
+  try { await navigator.clipboard.writeText($('formatExample').textContent); $('btnCopyFormat').textContent = 'Copiado'; setTimeout(() => { $('btnCopyFormat').textContent = 'Copiar ejemplo'; }, 1500); } catch (e) { /* */ }
+};
+$('importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 250000) { $('importResult').innerHTML = '<p class="msg bad">El archivo es demasiado grande (máximo 250 KB).</p>'; return; }
+  $('importText').value = await f.text();
+  $('importResult').innerHTML = '<p class="msg good">Archivo cargado. Pulsa «Revisar» o «Guardar mazos».</p>';
+});
+async function doImport(dry) {
+  const out = $('importResult'); out.innerHTML = '';
+  try {
+    const r = await api('/api/decks/import', {method: 'POST', body: {text: $('importText').value, shared: $('shareAll').checked, dryRun: dry}});
+    const list = (dry ? r.preview : r.created).map(d => '<li>' + esc(d.title) + ': ' + d.count + (d.kind === 'cards' ? ' tarjetas' : ' ejercicios') + '</li>').join('');
+    out.innerHTML = '<div class="prev"><b>' + (dry ? 'Todo en orden. Se crearían:' : 'Mazos guardados:') + '</b><ul style="margin:6px 0 0;padding-left:20px">' + list + '</ul></div>';
+    if (!dry) { $('importText').value = ''; $('importFile').value = ''; await loadHome(); $('importResult').innerHTML = out.innerHTML; }
+  } catch (err) {
+    if (err.message === 'auth') return;
+    const errs = err.data && err.data.errors;
+    out.innerHTML = '<p class="msg bad">' + esc(err.message) + '</p>' + (errs ? '<ul class="errlist">' + errs.map(x => '<li>' + (x.line ? 'Línea ' + x.line + ': ' : '') + esc(x.msg) + '</li>').join('') + '</ul>' : '');
+  }
+}
+$('btnReview').onclick = () => doImport(true);
+$('btnSave').onclick = () => doImport(false);
+
+/* ---------- informe ---------- */
+$('btnCopyWeek').onclick = async () => {
+  const m = $('repMsg'); m.className = 'msg';
+  try {
+    const res = await fetch('/api/report?period=week&date=' + today(), {credentials: 'same-origin'});
+    if (!res.ok) throw new Error();
+    await navigator.clipboard.writeText(await res.text());
+    m.className = 'msg good'; m.textContent = 'Informe copiado. Pégalo en la IA que prefieras.';
+  } catch (e) { m.className = 'msg bad'; m.textContent = 'No pude copiarlo. Usa el botón de descarga.'; }
+};
+
+/* ---------- nota del día ---------- */
+let noteTimer = null;
+$('note').addEventListener('input', () => {
+  clearTimeout(noteTimer); $('noteMsg').textContent = '';
+  noteTimer = setTimeout(async () => {
+    try { await api('/api/note', {method: 'PUT', body: {day: today(), text: $('note').value}}); $('noteMsg').textContent = 'Guardado.'; } catch (e) { /* */ }
+  }, 700);
+});
+
+/* ---------- estudio ---------- */
+let S = null;
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.85;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+async function startStudy(id) {
+  const np = Number($('newPerDay').value) || 0;
+  const data = await api('/api/decks/' + id + '/queue?today=' + today() + '&new=' + np);
+  S = {id, kind: data.kind, title: data.title, queue: data.items.slice(), cur: null, phase: 'answer', failed: new Set(), ok: 0, bad: 0};
+  show('study'); nextItem();
+}
+function nextItem() { S.cur = S.queue.shift() || null; S.phase = 'answer'; renderStudy(); }
+
+function renderStudy() {
+  const area = $('studyArea');
+  const isCards = S.kind === 'cards';
+  if (!S.cur) {
+    const n = S.ok + S.bad;
+    area.innerHTML = '<div class="done" style="margin-top:22px"><h2>' + (n ? 'Sesión terminada' : 'Nada pendiente por ahora') + '</h2>' +
+      '<p>' + (n ? 'Acertaste ' + S.ok + ' y fallaste ' + S.bad + '. ' : '') +
+      (isCards ? 'Las que acertaste volverán en 1, 3, 7, 14 o 30 días según su caja.' : 'Puedes repetir este mazo cuando quieras.') + '</p>' +
+      '<p><b>Para cerrar:</b> escribe una nota del día en el inicio y descarga tu informe cuando quieras.</p>' +
+      '<div class="row"><button class="btn" id="btnDone">Volver a mis mazos</button>' + (!isCards ? '<button class="btn ghost" id="btnAgain">Repetir mazo</button>' : '') + '</div></div>';
+    $('btnDone').onclick = () => loadHome().catch(() => {});
+    if ($('btnAgain')) $('btnAgain').onclick = () => startStudy(S.id).catch(e => alert(e.message));
+    return;
+  }
+  const c = S.cur;
+  area.innerHTML =
+    '<div class="meta"><span>' + esc(S.title) + '</span><span>Quedan ' + (S.queue.length + 1) + '</span></div>' +
+    '<div class="swatch"><div class="swatch-top ' + (isCards ? '' : 'ex') + '"><span>' + (isCards ? 'Tarjeta' : 'Ejercicio') + '</span><span>' + (c.isNew ? 'Nueva' : (S.failed.has(c.id) ? 'Otra vez' : '')) + '</span></div>' +
+    '<div class="swatch-body">' +
+    (isCards ? '<p class="es">' + esc(c.es) + '</p><p class="sentence">' + esc(c.masked) + '</p>' : '<p class="sentence" style="font-size:22px">' + esc(c.q) + '</p>') +
+    '<div class="row"><input type="text" class="answer" id="ans" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Tu respuesta" placeholder="Escribe en inglés">' +
+    '<button class="btn" id="btnCheck">Comprobar</button>' +
+    (isCards ? '<button class="btn ghost" id="btnHint">Pista</button>' : '') +
+    '<button class="btn ghost" id="btnSkip">No lo sé</button></div>' +
+    '<p class="hint" id="hintBox"></p><div id="fb"></div></div></div>';
+  $('btnCheck').onclick = () => submit(false);
+  $('btnSkip').onclick = () => submit(true);
+  if ($('btnHint')) $('btnHint').onclick = () => { $('hintBox').textContent = 'Empieza con «' + c.first + '» y tiene ' + c.len + ' letras.'; };
+  $('ans').focus();
+}
+
+async function submit(skipped) {
+  if (!S.cur || S.phase !== 'answer') return;
+  const val = $('ans').value;
+  if (!skipped && !val.trim()) return;
+  S.phase = 'sending';
+  ['ans', 'btnCheck', 'btnHint', 'btnSkip'].forEach(id => { if ($(id)) $(id).disabled = true; });
+  let r;
+  try {
+    r = await api('/api/answer', {method: 'POST', body: {itemId: S.cur.id, answer: val, skipped, retry: S.failed.has(S.cur.id), today: today()}});
+  } catch (e) {
+    if (e.message === 'auth') return;
+    S.phase = 'answer';
+    ['ans', 'btnCheck', 'btnHint', 'btnSkip'].forEach(id => { if ($(id)) $(id).disabled = false; });
+    $('hintBox').textContent = 'No se pudo guardar: ' + e.message + ' Inténtalo de nuevo.';
+    return;
+  }
+  S.phase = 'result';
+  const c = S.cur;
+  if (r.correct) S.ok++;
+  else { S.bad++; if (!S.failed.has(c.id)) { S.failed.add(c.id); S.queue.push(c); } }
+
+  const isCards = S.kind === 'cards';
+  const extra = isCards
+    ? '<p>' + esc(r.example) + '</p><p style="font-weight:600">Repite la frase en voz alta 3 veces.</p>'
+    : (r.why ? '<p>' + esc(r.why) + '</p>' : '');
+  $('fb').innerHTML = '<div class="feedback ' + (r.correct ? '' : 'bad') + '"><strong>' + (r.correct ? 'Correcto: ' : (skipped ? 'Respuesta: ' : 'Casi. La respuesta es: ')) + esc(r.expected) + '</strong>' + extra +
+    '<div class="row" style="margin-top:10px">' + (isCards ? '<button class="btn ghost" id="btnSpeak">Escuchar</button>' : '') + '<button class="btn" id="btnNext">Siguiente</button></div></div>';
+  if ($('btnSpeak')) $('btnSpeak').onclick = () => speak(r.example);
+  $('btnNext').onclick = nextItem;
+  setTimeout(() => { const b = $('btnNext'); if (b) b.focus(); }, 60);
+  if (isCards) speak(r.example);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || $('study').hidden || !S || !S.cur) return;
+  const el = document.activeElement;
+  if (S.phase === 'answer') { e.preventDefault(); submit(false); }
+  else if (S.phase === 'result' && !(el && el.tagName === 'BUTTON')) { e.preventDefault(); nextItem(); }
+});
+$('btnBack').onclick = () => loadHome().catch(() => {});
+
+/* ---------- inicio ---------- */
+(async function init() {
+  try { config = await (await fetch('/api/config')).json(); } catch (e) { /* */ }
+  setMode('login');
+  try { const r = await api('/api/me'); user = r.user; await loadHome(); } catch (e) { if (e.message !== 'auth') showAuth(); }
+})();
+</script>
+</body>
+</html>

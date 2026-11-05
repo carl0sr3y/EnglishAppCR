@@ -1,0 +1,58 @@
+// Ejemplo listo para importar: Semana 1 del plan de inglés.
+// Formato: ver «Ver el formato» dentro de la app.
+
+@deck Semana 1 - Arte
+brush | pincel | I use a thin brush for the small details.
+watercolor | acuarela | I paint faces with watercolor. | watercolour
+canvas | lienzo | The canvas is white and very large.
+sketch | boceto | First I make a quick sketch of the face.
+portrait | retrato | This portrait shows an old man smiling.
+frame | marco | The gold frame makes the painting look elegant.
+gallery | galería | My digital gallery has twelve paintings.
+exhibition | exposición | There is a new exhibition about Renaissance art.
+shade | tono (de un color) | Use a darker shade of blue here.
+artwork | obra de arte | Each artwork in the museum has a small label.
+
+@deck Semana 1 - Programación
+bug | error (de programación) | There is a bug in my code.
+debug | depurar (quitar errores) | I need to debug this function today.
+feature | funcionalidad | I am adding a new feature to my website.
+launch | lanzar | She is going to launch the app next month.
+improve | mejorar | I want to improve my English every day.
+update | actualizar | Please update the page before the exhibition.
+database | base de datos | The database stores all the paintings.
+deploy | desplegar / publicar | We deploy the website on Friday.
+browser | navegador | Open the page in your browser.
+file | archivo | Save the file with a clear name.
+
+@deck Semana 1 - Italia y cultura
+capital | capital (ciudad) | Rome is the capital of Italy.
+tradition | tradición | Coffee after lunch is an Italian tradition.
+cuisine | gastronomía / cocina | Italian cuisine is famous around the world.
+landscape | paisaje | Tuscany has a beautiful landscape.
+picturesque | pintoresco | The village is small and picturesque.
+acquire | adquirir | The museum wants to acquire this painting.
+have dinner | cenar | Italians usually have dinner late.
+famous for | famoso por | Florence is famous for its art.
+ancient | antiguo (muy viejo) | Rome has many ancient buildings.
+heritage | patrimonio | Italy protects its cultural heritage.
+
+@exercises Semana 1 - Gramática A: am, is, are
+I ___ painting a portrait now. => am | I + am. Con -ing siempre necesitas am/is/are.
+She ___ writing code. => is | She + is.
+They ___ visiting Florence this week. => are | They + are.
+We ___ drawing in the gallery. => are | We + are.
+He ___ not working today. => is | He + is not (isn't).
+___ you learning Italian? => are | En pregunta, am/is/are va primero: Are you learning...?
+My brother ___ debugging the app. => is | My brother = he, entonces is.
+It ___ raining in Rome. => is | It + is.
+
+@exercises Semana 1 - Gramática B: simple o continuo
+Marco usually ___ (paint) in the morning. => paints | usually = hábito, Present Simple. He + verbo con -s.
+Right now Marco ___ (paint) a landscape. => is painting | right now = Present Continuous.
+I ___ (write) code every night. => write | every night = hábito. Con I, verbo base.
+Today I ___ (write) a new feature. => am writing / i am writing / i'm writing | today = temporal, Present Continuous. Write pierde la e: writing.
+She ___ (not like) spicy food. => doesn't like / does not like | Like es un verbo de gusto: no lleva -ing. Negativo con she = doesn't + verbo base.
+They ___ (have) dinner at 8 pm every day. => have | every day = hábito, Present Simple.
+At the moment he ___ (have) dinner. => is having | At the moment = ahora. Have dinner sí admite -ing.
+Escribe la pregunta: you / draw / faces / this week => are you drawing faces this week | Are + sujeto + verbo-ing: Are you drawing faces this week?
