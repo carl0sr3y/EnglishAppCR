@@ -66,6 +66,17 @@ Notas:
 - Cuando tus amigos ya tengan cuenta, puedes poner `REGISTRATION=closed` para que nadie más pueda registrarse.
 - Para compartir la app, pasa a tus amigos el enlace **sin** `/admin` (y el código de invitación si lo usas, o créales tú la cuenta desde el panel).
 
+## Actualizar desde la primera versión
+
+Si ya tenías la primera versión en GitHub y Railway:
+
+1. Copia los archivos de esta carpeta sobre tu proyecto local (sin borrar la carpeta `.git`).
+2. En la terminal de VS Code: `git add .`, `git commit -m "Panel de administración, roles y nuevo diseño"` y `git push`.
+3. Railway vuelve a desplegar solo al detectar el push.
+4. **La base de datos se migra sola** al arrancar: los mazos que estaban «compartidos» quedan publicados y los privados quedan como borrador. No se pierde progreso ni usuarios.
+5. La cuenta que antes era administradora sigue siéndolo: puedes entrar con ella a `/admin`. Si además defines `ADMIN_USERNAME` y `ADMIN_PASSWORD`, se crea una cuenta de administración nueva con esos datos (si el nombre ya existe, se conserva su contraseña actual).
+6. Desde `/admin` → Usuarios crea tu usuario normal para estudiar en `/`.
+
 ## Probarla en tu computadora
 
 Necesitas PostgreSQL local o una base de Railway.

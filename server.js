@@ -89,6 +89,20 @@ create table if not exists notes (
 );
 `;
 
+// Migración para bases creadas con la primera versión (columna "shared" -> "published").
+// Es segura de ejecutar siempre: si ya está migrada, no hace nada.
+const MIGRATE = `
+alter table decks add column if not exists published boolean not null default false;
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = current_schema() and table_name = 'decks' and column_name = 'shared') then
+    execute 'update decks set published = shared';
+    execute 'alter table decks drop column shared';
+  end if;
+end $$;
+`;
+
 /* ---------------------------------------------------------------- utilidades */
 const err = (res, status, msg, extra) => res.status(status).json(Object.assign({ ok: false, error: msg }, extra || {}));
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -709,6 +723,7 @@ async function ensureAdmin() {
 (async () => {
   try {
     await q(SCHEMA);
+    await q(MIGRATE);
     await ensureAdmin();
     app.listen(PORT, '0.0.0.0', () => console.log('Escuchando en el puerto ' + PORT));
   } catch (e) {
