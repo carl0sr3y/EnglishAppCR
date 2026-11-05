@@ -4,14 +4,16 @@ const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
 const { Pool } = require('pg');
-const { parseDeckText, normalize } = require('./parser');
+const { parseDeckText, deckToText, normalize } = require('./parser');
 
 const PORT = Number(process.env.PORT) || 3000;
 const IS_PROD = process.env.NODE_ENV === 'production';
 const INVITE_CODE = (process.env.INVITE_CODE || '').trim();
-const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
+const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || '').trim();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const REGISTRATION_CLOSED = (process.env.REGISTRATION || '').trim().toLowerCase() === 'closed';
 const INTERVALS = [1, 3, 7, 14, 30]; // días hasta el siguiente repaso, por caja
-const MAX_DECKS_PER_USER = 60;
+const MAX_DECKS = 300;
 
 if (!process.env.DATABASE_URL) {
   console.error('Falta la variable de entorno DATABASE_URL.');
@@ -45,7 +47,7 @@ create table if not exists decks (
   owner_id int not null references users(id) on delete cascade,
   title text not null,
   kind text not null check (kind in ('cards','exercises')),
-  shared boolean not null default false,
+  published boolean not null default false,
   created_at timestamptz not null default now()
 );
 create table if not exists items (
@@ -207,26 +209,36 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get(['/admin', '/admin/'], (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0 }));
 app.get('/health', (req, res) => res.json({ ok: true }));
-app.get('/api/config', (req, res) => res.json({ inviteRequired: Boolean(INVITE_CODE) }));
 
 /* ---------- cuentas ---------- */
+function requireAdmin(req, res, next) {
+  if (!req.user || !req.user.is_admin) return err(res, 403, 'Solo para administración.');
+  next();
+}
+const USERNAME_RE = /^[A-Za-z0-9_.-]{3,24}$/;
+const USERNAME_MSG = 'Usuario: de 3 a 24 caracteres (letras, números, guion, guion bajo o punto).';
+const PASSWORD_MSG = 'La contraseña debe tener al menos 8 caracteres.';
+
+app.get('/api/config', (req, res) => res.json({ inviteRequired: Boolean(INVITE_CODE), registrationClosed: REGISTRATION_CLOSED }));
+
+// Registro público: SIEMPRE crea usuarios normales (nunca administradores).
 app.post('/api/register', limiter(10, 15 * 60 * 1000), wrap(async (req, res) => {
+  if (REGISTRATION_CLOSED) return err(res, 403, 'El registro está cerrado. Pide a la administración que te cree una cuenta.');
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
-  if (!/^[A-Za-z0-9_.-]{3,24}$/.test(username)) return err(res, 400, 'Usuario: de 3 a 24 caracteres (letras, números, guion, guion bajo o punto).');
-  if (password.length < 8 || password.length > 200) return err(res, 400, 'La contraseña debe tener al menos 8 caracteres.');
+  if (!USERNAME_RE.test(username)) return err(res, 400, USERNAME_MSG);
+  if (password.length < 8 || password.length > 200) return err(res, 400, PASSWORD_MSG);
   if (INVITE_CODE && String(req.body.invite || '').trim() !== INVITE_CODE) return err(res, 403, 'Código de invitación incorrecto.');
 
-  const count = (await q('select count(*)::int as c from users')).rows[0].c;
-  const isAdmin = ADMIN_USERNAME ? username.toLowerCase() === ADMIN_USERNAME : count === 0;
   const { salt, hash } = await hashPassword(password);
   let r;
   try {
     r = await q(
-      'insert into users(username, username_lower, salt, pass_hash, is_admin) values ($1,$2,$3,$4,$5) returning id, username, is_admin',
-      [username, username.toLowerCase(), salt, hash, isAdmin]
+      'insert into users(username, username_lower, salt, pass_hash, is_admin) values ($1,$2,$3,$4,false) returning id, username, is_admin',
+      [username, username.toLowerCase(), salt, hash]
     );
   } catch (e) {
     if (e.code === '23505') return err(res, 409, 'Ese usuario ya existe. Elige otro.');
@@ -257,20 +269,33 @@ app.post('/api/logout', wrap(async (req, res) => {
 
 app.get('/api/me', auth, (req, res) => res.json({ ok: true, user: req.user }));
 
-/* ---------- mazos ---------- */
+app.post('/api/password', auth, limiter(10, 15 * 60 * 1000), wrap(async (req, res) => {
+  const current = String(req.body.current || '');
+  const next = String(req.body.next || '');
+  if (next.length < 8 || next.length > 200) return err(res, 400, PASSWORD_MSG);
+  const u = (await q('select salt, pass_hash from users where id = $1', [req.user.id])).rows[0];
+  if (!(await verifyPassword(current, u.salt, u.pass_hash))) return err(res, 403, 'La contraseña actual no es correcta.');
+  const { salt, hash } = await hashPassword(next);
+  await q('update users set salt = $1, pass_hash = $2 where id = $3', [salt, hash, req.user.id]);
+  const token = parseCookies(req.headers.cookie).sid;
+  await q('delete from sessions where user_id = $1 and token_hash <> $2', [req.user.id, sha(token)]);
+  res.json({ ok: true });
+}));
+
+/* ---------- mazos (lo que ve el usuario) ---------- */
 async function getAccessibleDeck(deckId, user) {
-  const r = await q('select id, owner_id, title, kind, shared from decks where id = $1 and (owner_id = $2 or shared = true)', [deckId, user.id]);
+  const r = await q('select id, title, kind, published from decks where id = $1 and (published = true or $2::boolean)', [deckId, user.is_admin]);
   return r.rows[0] || null;
 }
 
 app.get('/api/decks', auth, wrap(async (req, res) => {
   const today = isDate(req.query.today) ? req.query.today : new Date().toISOString().slice(0, 10);
   const decks = (await q(
-    `select d.id, d.title, d.kind, d.shared, d.owner_id, u.username as owner,
+    `select d.id, d.title, d.kind,
             (select count(*)::int from items i where i.deck_id = d.id) as total
-       from decks d join users u on u.id = d.owner_id
-      where d.owner_id = $1 or d.shared = true
-      order by d.created_at desc`, [req.user.id])).rows;
+       from decks d
+      where d.published = true or $1::boolean
+      order by d.created_at, d.id`, [req.user.is_admin])).rows;
   const counts = (await q(
     `select i.deck_id,
             count(*) filter (where p.item_id is null)::int as fresh,
@@ -282,13 +307,46 @@ app.get('/api/decks', auth, wrap(async (req, res) => {
     ok: true,
     decks: decks.map(d => Object.assign({}, d, {
       fresh: (byDeck.get(d.id) || {}).fresh || 0,
-      due: (byDeck.get(d.id) || {}).due || 0,
-      can_delete: d.owner_id === req.user.id || req.user.is_admin
+      due: (byDeck.get(d.id) || {}).due || 0
     }))
   });
 }));
 
-app.post('/api/decks/import', auth, wrap(async (req, res) => {
+/* ---------- administración ---------- */
+app.get('/api/admin/decks', auth, requireAdmin, wrap(async (req, res) => {
+  const decks = (await q(
+    `select d.id, d.title, d.kind, d.published, to_char(d.created_at, 'YYYY-MM-DD') as created,
+            (select count(*)::int from items i where i.deck_id = d.id) as total,
+            (select count(*)::int from attempts a where a.deck_id = d.id) as attempts,
+            (select count(distinct a.user_id)::int from attempts a where a.deck_id = d.id) as learners
+       from decks d order by d.created_at, d.id`)).rows;
+  res.json({ ok: true, decks });
+}));
+
+app.get('/api/admin/decks/:id', auth, requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const d = id ? (await q('select id, title, kind, published from decks where id = $1', [id])).rows[0] : null;
+  if (!d) return err(res, 404, 'Mazo no encontrado.');
+  const items = (await q('select data from items where deck_id = $1 order by position', [id])).rows.map(r => r.data);
+  res.json({ ok: true, deck: d, items, text: deckToText(d, items) });
+}));
+
+app.patch('/api/admin/decks/:id', auth, requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id || typeof req.body.published !== 'boolean') return err(res, 400, 'Datos no válidos.');
+  const r = await q('update decks set published = $1 where id = $2 returning id, published', [req.body.published, id]);
+  if (!r.rows[0]) return err(res, 404, 'Mazo no encontrado.');
+  res.json({ ok: true, deck: r.rows[0] });
+}));
+
+app.delete('/api/admin/decks/:id', auth, requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const r = id ? await q('delete from decks where id = $1 returning id', [id]) : { rows: [] };
+  if (!r.rows[0]) return err(res, 404, 'Mazo no encontrado.');
+  res.json({ ok: true });
+}));
+
+app.post('/api/admin/import', auth, requireAdmin, wrap(async (req, res) => {
   const text = req.body.text;
   if (typeof text !== 'string' || !text.trim()) return err(res, 400, 'Pega algún texto o sube un archivo.');
   if (text.length > 250000) return err(res, 400, 'El texto es demasiado grande.');
@@ -300,15 +358,15 @@ app.post('/api/decks/import', auth, wrap(async (req, res) => {
   const summary = parsed.decks.map(d => ({ title: d.title, kind: d.kind, count: d.items.length }));
   if (req.body.dryRun) return res.json({ ok: true, preview: summary });
 
-  const owned = (await q('select count(*)::int as c from decks where owner_id = $1', [req.user.id])).rows[0].c;
-  if (owned + parsed.decks.length > MAX_DECKS_PER_USER) return err(res, 400, 'Llegaste al máximo de ' + MAX_DECKS_PER_USER + ' mazos. Elimina alguno.');
+  const total = (await q('select count(*)::int as c from decks')).rows[0].c;
+  if (total + parsed.decks.length > MAX_DECKS) return err(res, 400, 'Llegaste al máximo de ' + MAX_DECKS + ' mazos. Elimina alguno.');
 
-  const shared = Boolean(req.body.shared) && req.user.is_admin;
+  const published = req.body.published !== false;
   const client = await pool.connect();
   try {
     await client.query('begin');
     for (const d of parsed.decks) {
-      const dr = await client.query('insert into decks(owner_id, title, kind, shared) values ($1,$2,$3,$4) returning id', [req.user.id, d.title, d.kind, shared]);
+      const dr = await client.query('insert into decks(owner_id, title, kind, published) values ($1,$2,$3,$4) returning id', [req.user.id, d.title, d.kind, published]);
       await client.query(
         `insert into items(deck_id, position, data)
          select $1, ord - 1, elem from jsonb_array_elements($2::jsonb) with ordinality as t(elem, ord)`,
@@ -322,15 +380,69 @@ app.post('/api/decks/import', auth, wrap(async (req, res) => {
   } finally {
     client.release();
   }
-  res.json({ ok: true, created: summary });
+  res.json({ ok: true, created: summary, published });
 }));
 
-app.delete('/api/decks/:id', auth, wrap(async (req, res) => {
+app.get('/api/admin/users', auth, requireAdmin, wrap(async (req, res) => {
+  const today = isDate(req.query.today) ? req.query.today : new Date().toISOString().slice(0, 10);
+  const users = (await q(
+    `select u.id, u.username, u.is_admin, to_char(u.created_at, 'YYYY-MM-DD') as created,
+            (select to_char(max(a.created_at), 'YYYY-MM-DD') from attempts a where a.user_id = u.id) as last_activity,
+            (select count(*)::int from attempts a where a.user_id = u.id and a.retry = false and a.day between $1::date - 6 and $1::date) as week_total,
+            (select count(*)::int from attempts a where a.user_id = u.id and a.retry = false and a.correct and a.day between $1::date - 6 and $1::date) as week_ok
+       from users u order by u.is_admin desc, u.created_at, u.id`, [today])).rows;
+  res.json({ ok: true, users, me: req.user.id });
+}));
+
+app.post('/api/admin/users', auth, requireAdmin, wrap(async (req, res) => {
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+  if (!USERNAME_RE.test(username)) return err(res, 400, USERNAME_MSG);
+  if (password.length < 8 || password.length > 200) return err(res, 400, PASSWORD_MSG);
+  const { salt, hash } = await hashPassword(password);
+  try {
+    const r = await q(
+      'insert into users(username, username_lower, salt, pass_hash, is_admin) values ($1,$2,$3,$4,$5) returning id, username, is_admin',
+      [username, username.toLowerCase(), salt, hash, Boolean(req.body.is_admin)]);
+    res.json({ ok: true, user: r.rows[0] });
+  } catch (e) {
+    if (e.code === '23505') return err(res, 409, 'Ese usuario ya existe.');
+    throw e;
+  }
+}));
+
+const TEMP_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+function tempPassword() {
+  let out = '';
+  for (let i = 0; i < 10; i++) out += TEMP_ALPHABET[crypto.randomInt(TEMP_ALPHABET.length)];
+  return out;
+}
+
+app.post('/api/admin/users/:id/reset-password', auth, requireAdmin, wrap(async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  if (!id) return err(res, 400, 'Mazo no válido.');
-  const r = await q('delete from decks where id = $1 and (owner_id = $2 or $3::boolean) returning id', [id, req.user.id, req.user.is_admin]);
-  if (!r.rows[0]) return err(res, 404, 'No encontré ese mazo o no tienes permiso para eliminarlo.');
+  const u = id ? (await q('select id, username from users where id = $1', [id])).rows[0] : null;
+  if (!u) return err(res, 404, 'Usuario no encontrado.');
+  const temp = tempPassword();
+  const { salt, hash } = await hashPassword(temp);
+  await q('update users set salt = $1, pass_hash = $2 where id = $3', [salt, hash, id]);
+  await q('delete from sessions where user_id = $1', [id]);
+  res.json({ ok: true, username: u.username, password: temp });
+}));
+
+app.delete('/api/admin/users/:id', auth, requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) return err(res, 400, 'Usuario no válido.');
+  if (id === req.user.id) return err(res, 400, 'No puedes eliminar tu propia cuenta de administración.');
+  const r = await q('delete from users where id = $1 returning id', [id]);
+  if (!r.rows[0]) return err(res, 404, 'Usuario no encontrado.');
   res.json({ ok: true });
+}));
+
+app.get('/api/admin/users/:id/report', auth, requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const u = id ? (await q('select id, username from users where id = $1', [id])).rows[0] : null;
+  if (!u) return err(res, 404, 'Usuario no encontrado.');
+  await sendReport(req, res, u);
 }));
 
 /* ---------- estudio ---------- */
@@ -374,7 +486,7 @@ app.post('/api/answer', auth, wrap(async (req, res) => {
   const r = await q(
     `select i.id, i.data, d.id as deck_id, d.title, d.kind
        from items i join decks d on d.id = i.deck_id
-      where i.id = $1 and (d.owner_id = $2 or d.shared = true)`, [itemId, req.user.id]);
+      where i.id = $1 and (d.published = true or $2::boolean)`, [itemId, req.user.is_admin]);
   const item = r.rows[0];
   if (!item) return err(res, 404, 'Elemento no encontrado.');
 
@@ -552,22 +664,19 @@ function reportToMarkdown(r) {
   return L.join('\n');
 }
 
-app.get('/api/report', auth, wrap(async (req, res) => {
+async function sendReport(req, res, target) {
   const period = req.query.period === 'week' ? 'week' : 'day';
   const date = req.query.date;
   if (!isDate(date)) return err(res, 400, 'Fecha no válida.');
-  const report = await buildReport(req.user, period, date);
+  const report = await buildReport(target, period, date);
   const asJson = req.query.format === 'json';
-  const safeUser = req.user.username.replace(/[^A-Za-z0-9_.-]/g, '_');
+  const safeUser = target.username.replace(/[^A-Za-z0-9_.-]/g, '_');
   const name = 'informe-' + safeUser + '-' + (period === 'week' ? 'semana' : 'dia') + '-' + date + (asJson ? '.json' : '.md');
   res.setHeader('Content-Disposition', 'attachment; filename="' + name + '"');
-  if (req.query.inline === '1') res.setHeader('Content-Disposition', 'inline');
-  if (asJson) {
-    res.type('application/json; charset=utf-8').send(JSON.stringify(report, null, 2));
-  } else {
-    res.type('text/markdown; charset=utf-8').send(reportToMarkdown(report));
-  }
-}));
+  if (asJson) res.type('application/json; charset=utf-8').send(JSON.stringify(report, null, 2));
+  else res.type('text/markdown; charset=utf-8').send(reportToMarkdown(report));
+}
+app.get('/api/report', auth, wrap(async (req, res) => sendReport(req, res, req.user)));
 
 /* ---------- errores ---------- */
 app.use('/api', (req, res) => err(res, 404, 'Ruta no encontrada.'));
@@ -578,9 +687,29 @@ app.use((e, req, res, next) => { // eslint-disable-line no-unused-vars
   err(res, 500, 'Error del servidor. Inténtalo de nuevo.');
 });
 
+async function ensureAdmin() {
+  if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+    console.warn('AVISO: define ADMIN_USERNAME y ADMIN_PASSWORD para crear la cuenta de administración.');
+    return;
+  }
+  if (!USERNAME_RE.test(ADMIN_USERNAME) || ADMIN_PASSWORD.length < 8) {
+    console.warn('AVISO: ADMIN_USERNAME o ADMIN_PASSWORD no son válidos (usuario 3-24 caracteres, contraseña de al menos 8).');
+    return;
+  }
+  const existing = (await q('select id, is_admin from users where username_lower = $1', [ADMIN_USERNAME.toLowerCase()])).rows[0];
+  if (existing) {
+    if (!existing.is_admin) await q('update users set is_admin = true where id = $1', [existing.id]);
+    return;
+  }
+  const { salt, hash } = await hashPassword(ADMIN_PASSWORD);
+  await q('insert into users(username, username_lower, salt, pass_hash, is_admin) values ($1,$2,$3,$4,true)', [ADMIN_USERNAME, ADMIN_USERNAME.toLowerCase(), salt, hash]);
+  console.log('Cuenta de administración creada: ' + ADMIN_USERNAME);
+}
+
 (async () => {
   try {
     await q(SCHEMA);
+    await ensureAdmin();
     app.listen(PORT, '0.0.0.0', () => console.log('Escuchando en el puerto ' + PORT));
   } catch (e) {
     console.error('No se pudo iniciar la base de datos:', e.message);

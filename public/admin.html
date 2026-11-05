@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Administración · Tarjetas de idiomas</title>
+<script>try{document.documentElement.dataset.theme=(JSON.parse(localStorage.getItem("theme"))==="light")?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="admin">
+<div class="bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
+
+<main class="wrap" style="padding-bottom:60px">
+
+  <!-- ===== Acceso de administración ===== -->
+  <section id="auth" hidden>
+    <div class="authbox glass enter">
+      <div class="row" style="justify-content:space-between">
+        <h1>Administración</h1>
+        <button class="btn ghost sm themebtn" type="button">Modo claro</button>
+      </div>
+      <p class="muted" style="margin-top:8px">Solo para cuentas de administración. Para estudiar, usa la <a href="/">app</a> con tu cuenta de usuario.</p>
+      <form id="authForm">
+        <label for="username">Usuario</label>
+        <input type="text" id="username" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+        <div class="row" style="margin-top:18px"><button class="btn" type="submit" id="authSubmit">Entrar</button></div>
+        <div class="msg" id="authMsg" role="alert"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===== Panel ===== -->
+  <section id="panel" hidden>
+    <header class="topbar glass">
+      <span class="brand">Administración</span>
+      <div class="tabs" id="adminTabs" role="tablist">
+        <button class="tab" role="tab" data-tab="content" aria-selected="true" type="button">Contenido</button>
+        <button class="tab" role="tab" data-tab="import" aria-selected="false" type="button">Importar</button>
+        <button class="tab" role="tab" data-tab="users" aria-selected="false" type="button">Usuarios</button>
+        <button class="tab" role="tab" data-tab="account" aria-selected="false" type="button">Cuenta</button>
+      </div>
+      <div class="row">
+        <button class="btn ghost sm themebtn" type="button">Modo claro</button>
+        <button class="btn ghost sm" type="button" id="btnLogout">Salir</button>
+      </div>
+    </header>
+
+    <!-- Contenido -->
+    <div class="panel" data-panel="content">
+      <h2>Mazos</h2>
+      <p class="muted small">Los usuarios solo ven los mazos <b>publicados</b>. Un borrador queda oculto hasta que lo publiques.</p>
+      <div id="decks" class="stack stagger" style="margin-top:12px"></div>
+    </div>
+
+    <!-- Importar -->
+    <div class="panel" data-panel="import" hidden>
+      <h2>Importar contenido</h2>
+      <p class="muted small">Pega texto en el formato de abajo o sube un archivo .txt. Aquí es el único lugar donde se cargan tarjetas y ejercicios.</p>
+      <div class="glass card" style="margin-top:12px">
+        <details id="formatHelp">
+          <summary style="cursor:pointer;font-weight:600">Ver el formato</summary>
+          <p class="small" style="margin-top:10px">Cada mazo empieza con <b>@deck</b> (tarjetas) o <b>@exercises</b> (ejercicios con hueco). Los campos van separados por <b>|</b>. Las líneas vacías y las que empiezan con <b>//</b> se ignoran.</p>
+          <pre id="formatExample">@deck Arte: primeras palabras
+brush | pincel | I use a thin brush for the small details.
+watercolor | acuarela | I paint faces with watercolor. | watercolour
+
+@exercises Presente continuo
+I ___ painting a portrait now. => am | Con -ing necesitas am/is/are.
+She ___ writing code. => is / 's</pre>
+          <p class="small muted">Tarjeta: <b>inglés | español | frase que contenga la palabra | alternativas (opcional, separadas por ;)</b><br>Ejercicio: <b>frase con ___ => respuesta1 / respuesta2 | explicación (opcional)</b></p>
+          <button class="btn ghost sm" type="button" id="btnCopyFormat">Copiar ejemplo</button>
+        </details>
+        <label for="importText">Texto</label>
+        <textarea id="importText" rows="10" placeholder="@deck Mi primer mazo&#10;palabra | traducción | frase de ejemplo con la palabra"></textarea>
+        <div class="row" style="margin-top:12px">
+          <input type="file" id="importFile" accept=".txt,.md,text/plain" aria-label="Subir archivo de texto">
+          <button class="btn ghost sm" type="button" id="btnExample">Cargar ejemplo (Semana 1)</button>
+        </div>
+        <label class="check"><span class="switch"><input type="checkbox" id="publishNow" checked><i></i></span> Publicar para los usuarios al guardar</label>
+        <div class="row" style="margin-top:16px">
+          <button class="btn ghost" type="button" id="btnReview">Revisar</button>
+          <button class="btn" type="button" id="btnSave">Guardar mazos</button>
+        </div>
+        <div id="importResult" role="status"></div>
+      </div>
+    </div>
+
+    <!-- Usuarios -->
+    <div class="panel" data-panel="users" hidden>
+      <h2>Usuarios</h2>
+      <p class="muted small">Crea cuentas para ti y tus amigos. Para estudiar usa una cuenta <b>normal</b>; la de administración solo gestiona contenido.</p>
+      <div class="glass card" style="margin-top:12px">
+        <h3>Crear usuario</h3>
+        <form id="newUserForm">
+          <div class="formgrid">
+            <div><label for="nuName">Usuario</label><input type="text" id="nuName" autocomplete="off" autocapitalize="off" spellcheck="false" required></div>
+            <div><label for="nuPass">Contraseña (mínimo 8)</label><input type="password" id="nuPass" autocomplete="new-password" required minlength="8"></div>
+          </div>
+          <label class="check"><span class="switch"><input type="checkbox" id="nuAdmin"><i></i></span> Cuenta de administración (no recomendado para estudiar)</label>
+          <div class="row" style="margin-top:14px"><button class="btn" type="submit">Crear usuario</button></div>
+          <div class="msg" id="nuMsg" role="alert"></div>
+        </form>
+      </div>
+      <div id="users" class="stack stagger" style="margin-top:14px"></div>
+    </div>
+
+    <!-- Cuenta -->
+    <div class="panel" data-panel="account" hidden>
+      <div class="glass card">
+        <h2>Tu cuenta de administración</h2>
+        <p class="muted" id="accName"></p>
+        <form id="pwForm" style="margin-top:8px">
+          <h3 style="margin-top:6px">Cambiar contraseña</h3>
+          <label for="pwCur">Contraseña actual</label>
+          <input type="password" id="pwCur" autocomplete="current-password" required>
+          <label for="pwNew">Contraseña nueva (mínimo 8 caracteres)</label>
+          <input type="password" id="pwNew" autocomplete="new-password" required minlength="8">
+          <div class="row" style="margin-top:16px"><button class="btn" type="submit">Guardar contraseña</button></div>
+          <div class="msg" id="pwMsg" role="alert"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<dialog id="dlg"><div class="glass card" id="dlgBody"></div></dialog>
+
+<script src="/common.js"></script>
+<script>
+let me = null, tabs = null;
+
+/* ---------- diálogo propio (confirmaciones y avisos) ---------- */
+function openDialog(html) {
+  const d = $('dlg'); $('dlgBody').innerHTML = html;
+  if (!d.open) d.showModal();
+  return d;
+}
+function confirmDialog(title, text, okLabel, danger) {
+  return new Promise(resolve => {
+    const d = openDialog('<h2>' + esc(title) + '</h2><p class="muted">' + esc(text) + '</p><div class="row" style="margin-top:16px;justify-content:flex-end">' +
+      '<button class="btn ghost" id="dNo" type="button">Cancelar</button><button class="btn ' + (danger ? 'danger' : '') + '" id="dYes" type="button">' + esc(okLabel) + '</button></div>');
+    const done = v => { d.close(); resolve(v); };
+    $('dNo').onclick = () => done(false); $('dYes').onclick = () => done(true);
+    d.addEventListener('cancel', () => resolve(false), {once: true});
+  });
+}
+
+/* ---------- vistas ---------- */
+function showView(id) {
+  ['auth', 'panel'].forEach(v => { $(v).hidden = v !== id; });
+  replay($(id), 'enter'); window.scrollTo(0, 0);
+  if (id === 'panel' && tabs) tabs.refresh();
+}
+function showAuth(msg) { me = null; showView('auth'); $('password').value = ''; if (msg) { $('authMsg').className = 'msg bad'; $('authMsg').textContent = msg; } $('username').focus(); }
+window.onAuthLost = () => showAuth();
+
+$('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = $('authMsg'); msg.className = 'msg'; msg.textContent = '';
+  $('authSubmit').disabled = true;
+  try {
+    const r = await api('/api/login', {method: 'POST', body: {username: $('username').value, password: $('password').value}});
+    if (!r.user.is_admin) {
+      try { await api('/api/logout', {method: 'POST'}); } catch (x) { /* */ }
+      throw new Error('Esta cuenta no es de administración. Usa la app normal en la página principal.');
+    }
+    me = r.user; await enterPanel();
+  } catch (err) { msg.className = 'msg bad'; msg.textContent = err.message; replay($('authForm'), 'shake'); }
+  $('authSubmit').disabled = false;
+});
+$('btnLogout').onclick = async () => { try { await api('/api/logout', {method: 'POST'}); } catch (e) { /* */ } showAuth(); };
+
+async function enterPanel() {
+  $('accName').textContent = 'Sesión iniciada como ' + me.username + '.';
+  showView('panel'); tabs.select('content', true);
+  switchPanel('content');
+}
+function switchPanel(name) {
+  document.querySelectorAll('#panel .panel').forEach(p => {
+    const on = p.dataset.panel === name; p.hidden = !on; if (on) replay(p, 'enter');
+  });
+  if (name === 'content') loadDecks().catch(handle);
+  if (name === 'users') loadUsers().catch(handle);
+}
+function handle(err) { if (err.message !== 'auth') toast(err.message, 'bad'); }
+
+/* ---------- contenido ---------- */
+async function loadDecks() {
+  const r = await api('/api/admin/decks');
+  const el = $('decks');
+  if (!r.decks.length) { el.innerHTML = '<div class="empty">Aún no hay mazos. Ve a «Importar» para cargar el primero.</div>'; return; }
+  el.innerHTML = r.decks.map(d => {
+    const isCards = d.kind === 'cards';
+    return '<article class="deck glass" data-id="' + d.id + '" data-title="' + esc(d.title) + '">' +
+      '<div class="grow"><h3>' + esc(d.title) + '<span class="tag ' + (isCards ? '' : 'ex') + '">' + (isCards ? 'Tarjetas' : 'Ejercicios') + '</span>' +
+      '<span class="tag ' + (d.published ? '' : 'off') + ' pubtag">' + (d.published ? 'Publicado' : 'Borrador') + '</span></h3>' +
+      '<div class="muted small">' + d.total + (isCards ? ' tarjetas' : ' ejercicios') + ' · ' + d.learners + ' ' + (d.learners === 1 ? 'usuario' : 'usuarios') + ' · ' + d.attempts + ' respuestas · creado ' + esc(d.created) + '</div></div>' +
+      '<label class="row small" style="margin:0;font-weight:600">Publicado <span class="switch"><input type="checkbox" data-act="pub"' + (d.published ? ' checked' : '') + ' aria-label="Publicar ' + esc(d.title) + '"><i></i></span></label>' +
+      '<div class="row" style="width:100%">' +
+      '<button class="btn ghost sm" data-act="view" type="button">Ver contenido</button>' +
+      '<button class="btn ghost sm" data-act="edit" type="button">Editar como texto</button>' +
+      '<button class="btn danger sm" data-act="del" type="button">Eliminar</button></div>' +
+      '<div class="deck-extra" hidden></div></article>';
+  }).join('');
+  stagger(el);
+}
+$('decks').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const card = b.closest('.deck'); const id = Number(card.dataset.id); const title = card.dataset.title;
+  try {
+    if (b.dataset.act === 'view') {
+      const extra = card.querySelector('.deck-extra');
+      if (!extra.hidden) { extra.hidden = true; b.textContent = 'Ver contenido'; return; }
+      const r = await api('/api/admin/decks/' + id);
+      extra.innerHTML = '<ul class="item-list">' + r.items.map(it => r.deck.kind === 'cards'
+        ? '<li><b>' + esc(it.en) + '</b> · ' + esc(it.es) + '<br><span class="muted">' + esc(it.ex) + '</span></li>'
+        : '<li>' + esc(it.q) + ' → <b>' + esc(it.a.join(' / ')) + '</b>' + (it.why ? '<br><span class="muted">' + esc(it.why) + '</span>' : '') + '</li>').join('') + '</ul>';
+      extra.hidden = false; b.textContent = 'Ocultar contenido';
+    }
+    if (b.dataset.act === 'edit') {
+      const r = await api('/api/admin/decks/' + id);
+      $('importText').value = r.text; $('importResult').innerHTML = '<div class="prev">Copia de «' + esc(title) + '» cargada. Edítala y guárdala: se creará un mazo nuevo. Si quieres reemplazar el original, elimínalo después (se perdería su progreso).</div>';
+      tabs.select('import');
+    }
+    if (b.dataset.act === 'del') {
+      if (!(await confirmDialog('¿Eliminar «' + title + '»?', 'Se borran sus tarjetas y el progreso de los usuarios en este mazo. Los resultados ya registrados siguen apareciendo en los informes.', 'Eliminar mazo', true))) return;
+      await api('/api/admin/decks/' + id, {method: 'DELETE'}); toast('Mazo eliminado.', 'good'); await loadDecks();
+    }
+  } catch (err) { handle(err); }
+});
+$('decks').addEventListener('change', async e => {
+  const b = e.target.closest('[data-act="pub"]'); if (!b) return;
+  const card = b.closest('.deck');
+  try {
+    await api('/api/admin/decks/' + card.dataset.id, {method: 'PATCH', body: {published: b.checked}});
+    const tag = card.querySelector('.pubtag'); tag.textContent = b.checked ? 'Publicado' : 'Borrador'; tag.classList.toggle('off', !b.checked);
+    toast(b.checked ? 'Mazo publicado: ya lo ven los usuarios.' : 'Mazo oculto para los usuarios.', 'good');
+  } catch (err) { b.checked = !b.checked; handle(err); }
+});
+
+/* ---------- importar ---------- */
+$('btnCopyFormat').onclick = async () => { if (await copyText($('formatExample').textContent)) toast('Ejemplo copiado.', 'good'); };
+$('btnExample').onclick = async () => {
+  try { const r = await fetch('/ejemplo-semana1.txt'); if (!r.ok) throw new Error(); $('importText').value = await r.text(); toast('Ejemplo cargado. Pulsa «Revisar».', 'good'); }
+  catch (e) { toast('No pude cargar el ejemplo.', 'bad'); }
+};
+$('importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 250000) { toast('El archivo es demasiado grande (máximo 250 KB).', 'bad'); return; }
+  $('importText').value = await f.text(); toast('Archivo cargado.', 'good');
+});
+async function doImport(dry) {
+  const out = $('importResult'); out.innerHTML = '';
+  try {
+    const r = await api('/api/admin/import', {method: 'POST', body: {text: $('importText').value, published: $('publishNow').checked, dryRun: dry}});
+    const list = (dry ? r.preview : r.created).map(d => '<li>' + esc(d.title) + ': ' + d.count + (d.kind === 'cards' ? ' tarjetas' : ' ejercicios') + '</li>').join('');
+    out.innerHTML = '<div class="prev"><b>' + (dry ? 'Todo en orden. Se crearían:' : (r.published ? 'Mazos guardados y publicados:' : 'Mazos guardados como borrador:')) + '</b><ul style="margin:6px 0 0;padding-left:20px">' + list + '</ul></div>';
+    if (!dry) { $('importText').value = ''; $('importFile').value = ''; toast('Mazos guardados.', 'good'); }
+  } catch (err) {
+    if (err.message === 'auth') return;
+    const errs = err.data && err.data.errors;
+    out.innerHTML = '<div class="msg bad">' + esc(err.message) + '</div>' + (errs ? '<ul class="errlist">' + errs.map((x, i) => '<li style="animation-delay:' + i * 40 + 'ms">' + (x.line ? 'Línea ' + x.line + ': ' : '') + esc(x.msg) + '</li>').join('') + '</ul>' : '');
+    replay(out, 'shake');
+  }
+}
+$('btnReview').onclick = () => doImport(true);
+$('btnSave').onclick = () => doImport(false);
+
+/* ---------- usuarios ---------- */
+async function loadUsers() {
+  const r = await api('/api/admin/users?today=' + today());
+  const el = $('users');
+  el.innerHTML = r.users.map(u => {
+    const pct = u.week_total ? Math.round(u.week_ok * 100 / u.week_total) + ' %' : '–';
+    return '<article class="user-row glass" data-id="' + u.id + '" data-name="' + esc(u.username) + '">' +
+      '<div class="row" style="justify-content:space-between"><div><span class="name">' + esc(u.username) + '</span>' +
+      (u.is_admin ? '<span class="tag">Administración</span>' : '') + (u.id === r.me ? '<span class="tag off">tú</span>' : '') +
+      '<div class="chips"><span class="chip">Creado ' + esc(u.created) + '</span>' +
+      '<span class="chip">' + (u.last_activity ? 'Última actividad ' + esc(u.last_activity) : 'Sin actividad') + '</span>' +
+      '<span class="chip">Semana: ' + u.week_ok + '/' + u.week_total + ' (' + pct + ')</span></div></div>' +
+      '<div class="row">' +
+      '<a class="btn ghost sm" download href="/api/admin/users/' + u.id + '/report?period=week&date=' + today() + '">Informe semanal</a>' +
+      '<button class="btn ghost sm" data-act="reset" type="button">Restablecer contraseña</button>' +
+      (u.id === r.me ? '' : '<button class="btn danger sm" data-act="deluser" type="button">Eliminar</button>') + '</div></div></article>';
+  }).join('');
+  stagger(el);
+}
+$('users').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const row = b.closest('.user-row'); const id = Number(row.dataset.id); const name = row.dataset.name;
+  try {
+    if (b.dataset.act === 'reset') {
+      if (!(await confirmDialog('¿Restablecer la contraseña de ' + name + '?', 'Se generará una contraseña temporal y se cerrarán sus sesiones abiertas.', 'Restablecer'))) return;
+      const r = await api('/api/admin/users/' + id + '/reset-password', {method: 'POST'});
+      const d = openDialog('<h2>Contraseña temporal</h2><p class="muted">Para <b>' + esc(r.username) + '</b>. Pásasela por un canal privado y pídele que la cambie en la pestaña Cuenta. No se volverá a mostrar.</p><div class="secret">' + esc(r.password) + '</div>' +
+        '<div class="row" style="justify-content:flex-end"><button class="btn ghost" id="dCopy" type="button">Copiar</button><button class="btn" id="dOk" type="button">Listo</button></div>');
+      $('dCopy').onclick = async () => { if (await copyText(r.password)) toast('Copiada.', 'good'); };
+      $('dOk').onclick = () => d.close();
+    }
+    if (b.dataset.act === 'deluser') {
+      if (!(await confirmDialog('¿Eliminar a ' + name + '?', 'Se borra su cuenta y todo su progreso y resultados. No se puede deshacer.', 'Eliminar usuario', true))) return;
+      await api('/api/admin/users/' + id, {method: 'DELETE'}); toast('Usuario eliminado.', 'good'); await loadUsers();
+    }
+  } catch (err) { handle(err); }
+});
+$('newUserForm').addEventListener('submit', async e => {
+  e.preventDefault(); const m = $('nuMsg'); m.className = 'msg'; m.textContent = '';
+  try {
+    await api('/api/admin/users', {method: 'POST', body: {username: $('nuName').value, password: $('nuPass').value, is_admin: $('nuAdmin').checked}});
+    toast('Usuario «' + $('nuName').value.trim() + '» creado.', 'good');
+    $('nuName').value = ''; $('nuPass').value = ''; $('nuAdmin').checked = false; await loadUsers();
+  } catch (err) { if (err.message !== 'auth') { m.className = 'msg bad'; m.textContent = err.message; replay($('newUserForm'), 'shake'); } }
+});
+
+/* ---------- cuenta ---------- */
+$('pwForm').addEventListener('submit', async e => {
+  e.preventDefault(); const m = $('pwMsg'); m.className = 'msg'; m.textContent = '';
+  try {
+    await api('/api/password', {method: 'POST', body: {current: $('pwCur').value, next: $('pwNew').value}});
+    $('pwCur').value = ''; $('pwNew').value = ''; toast('Contraseña actualizada.', 'good');
+  } catch (err) { m.className = 'msg bad'; m.textContent = err.message; replay($('pwForm'), 'shake'); }
+});
+
+/* ---------- inicio ---------- */
+(async function init() {
+  initTheme();
+  tabs = makeTabs($('adminTabs'), name => switchPanel(name));
+  try {
+    const r = await api('/api/me'); me = r.user;
+    if (!me.is_admin) { showAuth('Has iniciado sesión con una cuenta normal. Entra con una cuenta de administración.'); return; }
+    await enterPanel();
+  } catch (e) { if (e.message !== 'auth') showAuth(); }
+})();
+</script>
+</body>
+</html>

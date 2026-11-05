@@ -116,4 +116,17 @@ function parseDeckText(text) {
   return { decks, errors };
 }
 
-module.exports = { parseDeckText, normalize, MAX_ITEMS_PER_DECK };
+// Convierte un mazo guardado de vuelta al formato de texto (para editarlo y volver a importarlo).
+function deckToText(deck, items) {
+  const lines = [(deck.kind === 'cards' ? '@deck ' : '@exercises ') + deck.title];
+  items.forEach(it => {
+    if (deck.kind === 'cards') {
+      lines.push([it.en, it.es, it.ex].concat(it.alt && it.alt.length ? [it.alt.join('; ')] : []).join(' | '));
+    } else {
+      lines.push(it.q + ' => ' + it.a.join(' / ') + (it.why ? ' | ' + it.why : ''));
+    }
+  });
+  return lines.join('\n') + '\n';
+}
+
+module.exports = { parseDeckText, deckToText, normalize, MAX_ITEMS_PER_DECK };
