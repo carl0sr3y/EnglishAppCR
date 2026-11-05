@@ -6,7 +6,7 @@
   // comentario (se ignora)
 
   @unit A1.1 Título de la unidad     -> agrupa los mazos que vienen después (nivel A1, unidad 1)
-  audience: general                  (o "personal"; opcional, por defecto general)
+  audience: all                      (opcional y SE IGNORA si eliges el destino en el panel; valores: all, general, personal)
   desc: Descripción corta            (opcional)
 
   @deck Título                       -> tarjetas
@@ -94,9 +94,9 @@ function parseDeckText(text) {
     if (!cur) {
       if (curUnit) {
         let pm;
-        if ((pm = line.match(/^audience:\s*(general|personal)\s*$/i))) curUnit.audience = pm[1].toLowerCase();
+        if ((pm = line.match(/^audience:\s*(all|general|personal)\s*$/i))) curUnit.audience = pm[1].toLowerCase();
         else if ((pm = line.match(/^desc:\s*(.+)$/i))) curUnit.description = pm[1].trim().slice(0, 300);
-        else errors.push({ line: n, msg: 'Dentro de una unidad, antes de sus mazos, solo puedes usar "audience: general|personal" y "desc: texto".' });
+        else errors.push({ line: n, msg: 'Dentro de una unidad, antes de sus mazos, solo puedes usar "audience: all|general|personal" y "desc: texto".' });
         return;
       }
       errors.push({ line: n, msg: 'Esta línea está antes de un encabezado (@unit, @deck, @exercises, @lesson, @reading o @writing).' });
@@ -204,7 +204,7 @@ function parseDeckText(text) {
   // 3) validaciones de unidades
   const seen = new Map();
   units.forEach((u, i) => {
-    const key = u.level + '.' + u.number + '/' + (u.audience || 'general');
+    const key = u.level + '.' + u.number + '/' + (u.audience || 'all');
     if (seen.has(key)) errors.push({ line: u.line, msg: 'La unidad ' + u.level + '.' + u.number + ' aparece repetida en este texto.' });
     seen.set(key, i);
     if (!decks.some(d => d.unit === i)) errors.push({ line: u.line, msg: 'La unidad ' + u.level + '.' + u.number + ' no tiene mazos.' });
@@ -253,7 +253,8 @@ function deckToText(deck, items) {
 
 // Convierte una unidad con todos sus mazos al formato de texto.
 function unitToText(unit, decksWithItems) {
-  const out = ['@unit ' + unit.level + '.' + unit.number + ' ' + unit.title, 'audience: ' + (unit.audience || 'general')];
+  // el destinatario se elige en el panel al importar, así que no se escribe en el texto
+  const out = ['@unit ' + unit.level + '.' + unit.number + ' ' + unit.title];
   if (unit.description) out.push('desc: ' + unit.description);
   decksWithItems.forEach(d => { out.push(''); out.push(deckToText(d, d.items).trimEnd()); });
   return out.join('\n') + '\n';

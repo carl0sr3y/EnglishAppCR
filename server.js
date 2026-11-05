@@ -101,10 +101,9 @@ create table if not exists units (
   number int not null,
   title text not null,
   description text not null default '',
-  audience text not null default 'general' check (audience in ('general','personal')),
+  audience text not null default 'all' check (audience in ('all','general','personal')),
   published boolean not null default false,
-  created_at timestamptz not null default now(),
-  unique (level, number, audience)
+  created_at timestamptz not null default now()
 );
 create table if not exists notes (
   user_id int not null references users(id) on delete cascade,
@@ -125,6 +124,19 @@ alter table users add column if not exists level text;
 alter table activities add column if not exists target text;
 alter table activities drop constraint if exists activities_kind_check;
 alter table activities add constraint activities_kind_check check (kind in ('lesson','reading','writing','speaking'));
+alter table units add column if not exists user_id int references users(id) on delete cascade;
+do $$
+begin
+  -- una sola vez: antes "general" significaba "todos"; ahora "todos" es 'all' y 'general' es "solo plan general"
+  if not exists (select 1 from pg_constraint where conname = 'units_audience_check' and pg_get_constraintdef(oid) like '%''all''%') then
+    alter table units drop constraint if exists units_audience_check;
+    update units set audience = 'all' where audience = 'general';
+    alter table units add constraint units_audience_check check (audience in ('all','general','personal'));
+  end if;
+end $$;
+alter table units alter column audience set default 'all';
+alter table units drop constraint if exists units_level_number_audience_key;
+create unique index if not exists units_ident on units (level, number, audience, coalesce(user_id, 0));
 alter table decks drop constraint if exists decks_kind_check;
 alter table decks add constraint decks_kind_check check (kind in ('cards','exercises','lesson','reading','writing'));
 do $$
@@ -341,7 +353,13 @@ app.post('/api/password', auth, limiter(10, 15 * 60 * 1000), wrap(async (req, re
 /* ---------- mazos (lo que ve el usuario) ---------- */
 // Regla de visibilidad: el administrador ve todo. Un usuario ve un mazo si el mazo está publicado y, cuando pertenece
 // a una unidad, la unidad está publicada y es general (o el usuario tiene el plan personalizado).
-const VIS = (A, P) => `(${A}::boolean or (d.published = true and (d.unit_id is null or (u.published = true and (u.audience = 'general' or ${P}::boolean)))))`;
+// A = es administrador, P = tiene plan personalizado, ME = id del usuario.
+//  - 'all':      la ven todos.
+//  - 'general':  solo las cuentas con plan general.
+//  - 'personal': solo la cuenta elegida (si la unidad no tiene cuenta elegida, como antes: todas las de plan personalizado).
+const AUD = (P, ME) => `(u.audience = 'all' or (u.audience = 'general' and not ${P}::boolean) or (u.audience = 'personal' and ${P}::boolean and (u.user_id is null or u.user_id = ${ME}::int)))`;
+const VIS = (A, P, ME) => `(${A}::boolean or (d.published = true and (d.unit_id is null or (u.published = true and ${AUD(P, ME)}))))`;
+const UVIS = (A, P, ME) => `(${A}::boolean or (u.published = true and ${AUD(P, ME)}))`;
 // "Unidades" de un mazo: tarjetas, ejercicios o preguntas (una lección o una tarea de escritura cuentan como 1).
 const UNITS_SQL = `(select count(*)::int from items i where i.deck_id = d.id and (d.kind <> 'reading' or (i.data->'q') is not null))`;
 const levelIdx = l => LEVELS.indexOf(l);
@@ -350,7 +368,7 @@ const sortUnits = (a, b) => (levelIdx(a.level) - levelIdx(b.level)) || (a.number
 async function getAccessibleDeck(deckId, user) {
   const r = await q(
     `select d.id, d.title, d.kind, d.published, d.unit_id from decks d left join units u on u.id = d.unit_id
-      where d.id = $1 and ${VIS('$2', '$3')}`, [deckId, user.is_admin, Boolean(user.personal)]);
+      where d.id = $1 and ${VIS('$2', '$3', '$4')}`, [deckId, user.is_admin, Boolean(user.personal), user.id]);
   return r.rows[0] || null;
 }
 
@@ -359,8 +377,8 @@ app.get('/api/decks', auth, wrap(async (req, res) => {
   const decks = (await q(
     `select d.id, d.title, d.kind, d.unit_id, ${UNITS_SQL} as total
        from decks d left join units u on u.id = d.unit_id
-      where ${VIS('$1', '$2')}
-      order by d.created_at, d.id`, [req.user.is_admin, req.user.personal])).rows;
+      where ${VIS('$1', '$2', '$3')}
+      order by d.created_at, d.id`, [req.user.is_admin, Boolean(req.user.personal), req.user.id])).rows;
   const counts = (await q(
     `select i.deck_id,
             count(*) filter (where p.item_id is null)::int as fresh,
@@ -394,7 +412,7 @@ app.get('/api/path', auth, wrap(async (req, res) => {
   const uid = req.user.id, admin = req.user.is_admin, personal = Boolean(req.user.personal);
   const units = (await q(
     `select u.id, u.level, u.number, u.title, u.description, u.audience, u.published
-       from units u where $1::boolean or (u.published = true and (u.audience = 'general' or $2::boolean))`, [admin, personal])).rows;
+       from units u where ${UVIS('$1', '$2', '$3')}`, [admin, personal, uid])).rows;
   const decks = (await q(
     `select d.id, d.kind, d.unit_id,
             (select count(*)::int from items i where i.deck_id = d.id and (d.kind <> 'reading' or (i.data->'q') is not null)) as total,
@@ -402,12 +420,12 @@ app.get('/api/path', auth, wrap(async (req, res) => {
             (select count(*)::int from attempts a where a.user_id = $1 and a.deck_id = d.id) as attempts,
             (select count(*)::int from activities x where x.user_id = $1 and x.deck_id = d.id and x.kind <> 'speaking') as acts
        from decks d join units u on u.id = d.unit_id
-      where ${VIS('$2', '$3')}`, [uid, admin, personal])).rows;
+      where ${VIS('$2', '$3', '$4')}`, [uid, admin, personal, uid])).rows;
   const isDone = d => d.kind === 'cards' ? (d.total > 0 && d.started >= d.total) : d.kind === 'exercises' ? d.attempts > 0 : d.acts > 0;
   const byUnit = new Map();
   decks.forEach(d => { const e = byUnit.get(d.unit_id) || { total: 0, done: 0 }; e.total++; if (isDone(d)) e.done++; byUnit.set(d.unit_id, e); });
   const full = units.map(u => Object.assign({}, u, byUnit.get(u.id) || { total: 0, done: 0 })).filter(u => u.total > 0 || admin).sort(sortUnits);
-  const general = full.filter(u => u.audience === 'general');
+  const general = full.filter(u => u.audience !== 'personal');
   const personalUnits = full.filter(u => u.audience === 'personal');
   const levels = LEVELS.map(l => ({ level: l, units: general.filter(u => u.level === l) })).filter(l => l.units.length);
 
@@ -440,9 +458,19 @@ app.get('/api/admin/decks', auth, requireAdmin, wrap(async (req, res) => {
   res.json({ ok: true, decks });
 }));
 
+// Comprueba que la cuenta elegida para contenido personal existe y tiene plan personalizado. Devuelve el mensaje de error o null.
+async function checkPersonalTarget(userId) {
+  const id = parseInt(userId, 10);
+  const u = id ? (await q('select id, is_admin, profile from users where id = $1', [id])).rows[0] : null;
+  if (!u || u.is_admin) return { error: 'Elige un usuario para el contenido personal.' };
+  if (u.profile !== 'personal') return { error: 'Ese usuario no tiene plan personalizado. Cámbiaselo en la pestaña Usuarios.' };
+  return { id: u.id };
+}
+
 app.get('/api/admin/units', auth, requireAdmin, wrap(async (req, res) => {
   const units = (await q(
-    `select u.id, u.level, u.number, u.title, u.description, u.audience, u.published,
+    `select u.id, u.level, u.number, u.title, u.description, u.audience, u.published, u.user_id,
+            (select x.username from users x where x.id = u.user_id) as username,
             (select count(*)::int from decks d where d.unit_id = u.id) as decks
        from units u`)).rows.sort(sortUnits);
   res.json({ ok: true, units });
@@ -450,7 +478,7 @@ app.get('/api/admin/units', auth, requireAdmin, wrap(async (req, res) => {
 
 app.get('/api/admin/units/:id', auth, requireAdmin, wrap(async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const u = id ? (await q('select id, level, number, title, description, audience from units where id = $1', [id])).rows[0] : null;
+  const u = id ? (await q('select id, level, number, title, description, audience, user_id from units where id = $1', [id])).rows[0] : null;
   if (!u) return err(res, 404, 'Unidad no encontrada.');
   const decks = (await q('select id, title, kind from decks where unit_id = $1 order by created_at, id', [id])).rows;
   for (const d of decks) d.items = (await q('select data from items where deck_id = $1 order by position', [d.id])).rows.map(r => r.data);
@@ -463,17 +491,24 @@ app.patch('/api/admin/units/:id', auth, requireAdmin, wrap(async (req, res) => {
   const sets = [], vals = [];
   const add = (col, v) => { vals.push(v); sets.push(col + ' = $' + vals.length); };
   if (typeof req.body.published === 'boolean') add('published', req.body.published);
-  if (req.body.audience === 'general' || req.body.audience === 'personal') add('audience', req.body.audience);
+  if (['all', 'general', 'personal'].indexOf(req.body.audience) !== -1) {
+    add('audience', req.body.audience);
+    if (req.body.audience === 'personal') {
+      const t = await checkPersonalTarget(req.body.userId);
+      if (t.error) return err(res, 400, t.error);
+      add('user_id', t.id);
+    } else add('user_id', null);
+  }
   if (typeof req.body.title === 'string' && req.body.title.trim()) add('title', req.body.title.trim().slice(0, 100));
   if (typeof req.body.description === 'string') add('description', req.body.description.trim().slice(0, 300));
   if (!sets.length) return err(res, 400, 'Nada que cambiar.');
   vals.push(id);
   try {
-    const r = await q('update units set ' + sets.join(', ') + ' where id = $' + vals.length + ' returning id, published, audience', vals);
+    const r = await q('update units set ' + sets.join(', ') + ' where id = $' + vals.length + ' returning id, published, audience, user_id', vals);
     if (!r.rows[0]) return err(res, 404, 'Unidad no encontrada.');
     res.json({ ok: true, unit: r.rows[0] });
   } catch (e) {
-    if (e.code === '23505') return err(res, 409, 'Ya existe una unidad con ese nivel, número y audiencia.');
+    if (e.code === '23505') return err(res, 409, 'Ya existe una unidad con ese nivel, número y destinatario.');
     throw e;
   }
 }));
@@ -518,15 +553,27 @@ app.post('/api/admin/import', auth, requireAdmin, wrap(async (req, res) => {
   if (!parsed.decks.length) return err(res, 400, 'No encontré ningún mazo (@deck, @exercises, @lesson, @reading o @writing) en el texto.');
 
   const mode = req.body.mode === 'replace' ? 'replace' : 'add';
+  // Destino elegido en el panel: 'all' (todos), 'general' (solo plan general) o 'personal' (un usuario con plan personalizado).
+  // Si no llega, se usa la línea "audience:" del archivo (o 'all').
+  const destAud = ['all', 'general', 'personal'].indexOf(req.body.audience) !== -1 ? req.body.audience : null;
+  let destUser = null;
+  if (destAud === 'personal') {
+    const t = await checkPersonalTarget(req.body.userId);
+    if (t.error) return err(res, 400, t.error);
+    destUser = t.id;
+  }
+  const audOf = u => destAud || u.audience || 'all';
+  const userOf = u => (audOf(u) === 'personal' ? destUser : null);
   const label = u => u.level + '.' + u.number;
   const summary = parsed.decks.map(d => ({ title: d.title, kind: d.kind, count: deckCount(d), unit: d.unit == null ? null : label(parsed.units[d.unit]) }));
 
   const existing = [];
   for (const u of parsed.units) {
-    const r = await q('select id from units where level = $1 and number = $2 and audience = $3', [u.level, u.number, u.audience || 'general']);
+    const r = await q('select id from units where level = $1 and number = $2 and audience = $3 and coalesce(user_id, 0) = coalesce($4::int, 0)', [u.level, u.number, audOf(u), userOf(u)]);
     existing.push(r.rows[0] ? r.rows[0].id : null);
   }
-  const unitsSummary = parsed.units.map((u, i) => ({ level: u.level, number: u.number, title: u.title, audience: u.audience || 'general', exists: existing[i] !== null }));
+  const targetName = destUser ? (await q('select username from users where id = $1', [destUser])).rows[0].username : null;
+  const unitsSummary = parsed.units.map((u, i) => ({ level: u.level, number: u.number, title: u.title, audience: audOf(u), username: audOf(u) === 'personal' ? targetName : null, exists: existing[i] !== null }));
   if (req.body.dryRun) return res.json({ ok: true, preview: summary, units: unitsSummary, mode });
 
   const total = (await q('select count(*)::int as c from decks')).rows[0].c;
@@ -545,8 +592,8 @@ app.post('/api/admin/import', auth, requireAdmin, wrap(async (req, res) => {
         await client.query('update units set title = $1, description = case when $2 = \'\' then description else $2 end where id = $3', [u.title, u.description, id]);
       } else {
         const ur = await client.query(
-          'insert into units(level, number, title, description, audience, published) values ($1,$2,$3,$4,$5,$6) returning id',
-          [u.level, u.number, u.title, u.description, u.audience || 'general', published]);
+          'insert into units(level, number, title, description, audience, user_id, published) values ($1,$2,$3,$4,$5,$6,$7) returning id',
+          [u.level, u.number, u.title, u.description, audOf(u), userOf(u), published]);
         id = ur.rows[0].id;
       }
       unitIds.push(id);
@@ -575,6 +622,7 @@ app.get('/api/admin/users', auth, requireAdmin, wrap(async (req, res) => {
   const today = isDate(req.query.today) ? req.query.today : new Date().toISOString().slice(0, 10);
   const users = (await q(
     `select u.id, u.username, u.is_admin, u.profile, u.level, to_char(u.created_at, 'YYYY-MM-DD') as created,
+            (select count(*)::int from units x where x.user_id = u.id) as personal_units,
             (select to_char(max(a.created_at), 'YYYY-MM-DD') from attempts a where a.user_id = u.id) as last_activity,
             (select count(*)::int from attempts a where a.user_id = u.id and a.retry = false and a.day between $1::date - 6 and $1::date) as week_total,
             (select count(*)::int from attempts a where a.user_id = u.id and a.retry = false and a.correct and a.day between $1::date - 6 and $1::date) as week_ok
@@ -711,7 +759,7 @@ app.post('/api/answer', auth, wrap(async (req, res) => {
   const r = await q(
     `select i.id, i.data, d.id as deck_id, d.title, d.kind
        from items i join decks d on d.id = i.deck_id left join units u on u.id = d.unit_id
-      where i.id = $1 and ${VIS('$2', '$3')}`, [itemId, req.user.is_admin, Boolean(req.user.personal)]);
+      where i.id = $1 and ${VIS('$2', '$3', '$4')}`, [itemId, req.user.is_admin, Boolean(req.user.personal), req.user.id]);
   const item = r.rows[0];
   if (!item) return err(res, 404, 'Elemento no encontrado.');
 
@@ -828,7 +876,7 @@ app.get('/api/phrases', auth, wrap(async (req, res) => {
   const rows = (await q(
     `select d.id as deck_id, d.kind, d.unit_id, i.data
        from items i join decks d on d.id = i.deck_id left join units u on u.id = d.unit_id
-      where d.kind in ('cards', 'lesson') and ${VIS('$1', '$2')}`, [req.user.is_admin, Boolean(req.user.personal)])).rows;
+      where d.kind in ('cards', 'lesson') and ${VIS('$1', '$2', '$3')}`, [req.user.is_admin, Boolean(req.user.personal), req.user.id])).rows;
   const pool = [];
   rows.forEach(r => {
     if (r.kind === 'cards') pool.push({ deckId: r.deck_id, unit: r.unit_id, text: r.data.ex, es: r.data.es });
@@ -858,7 +906,7 @@ app.get('/api/today', auth, wrap(async (req, res) => {
 
   const decks = (await q(
     `select d.id, d.title, d.kind, d.unit_id from decks d left join units u on u.id = d.unit_id
-      where ${VIS('$1', '$2')} order by d.created_at, d.id`, [admin, personal])).rows;
+      where ${VIS('$1', '$2', '$3')} order by d.created_at, d.id`, [admin, personal, uid])).rows;
   const cardRows = (await q(
     `select i.deck_id,
             count(*) filter (where p.item_id is null)::int as fresh,
@@ -866,8 +914,8 @@ app.get('/api/today', auth, wrap(async (req, res) => {
             count(*) filter (where p.first_day = $2::date)::int as seen_today
        from items i join decks d on d.id = i.deck_id left join units u on u.id = d.unit_id
        left join progress p on p.item_id = i.id and p.user_id = $1
-      where d.kind = 'cards' and ${VIS('$3', '$4')}
-      group by i.deck_id`, [uid, today, admin, personal])).rows;
+      where d.kind = 'cards' and ${VIS('$3', '$4', '$5')}
+      group by i.deck_id`, [uid, today, admin, personal, uid])).rows;
   const byDeck = new Map(cardRows.map(r => [r.deck_id, r]));
   let due = 0, newAvail = 0, newToday = 0, cardDecks = 0, dueDeck = null, newDeck = null;
   decks.filter(d => d.kind === 'cards').forEach(d => {
@@ -941,7 +989,6 @@ app.get('/api/stats', auth, wrap(async (req, res) => {
 /* ---------- informe descargable ---------- */
 const FORMAT_HELP = [
   '@unit A1.1 Título de la unidad   (opcional: agrupa los mazos que vienen después; niveles A1, A2, B1, B2, C1, C2)',
-  'audience: general   (o personal)',
   'desc: Descripción corta',
   '',
   '@deck Título del mazo',

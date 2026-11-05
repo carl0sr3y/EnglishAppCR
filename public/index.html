@@ -27,7 +27,7 @@
         <div class="brandrow"><img class="logo" src="/icons/icon.svg" alt="" width="46" height="46"><h1>Tarjetas de idiomas</h1></div>
         <button class="btn ghost sm themebtn" type="button">Oscuro</button>
       </div>
-      <p class="muted" style="margin-top:8px">Aprende con repetición espaciada y lleva tu progreso.</p>
+      <p class="muted" style="margin-top:8px">Aprende inglés un poco cada día.</p>
       <div class="seg">
         <div class="tabs glass" id="authTabs" role="tablist" style="box-shadow:none">
           <button class="tab" role="tab" data-tab="login" aria-selected="true" type="button">Entrar</button>
@@ -68,17 +68,12 @@
 
     <!-- Hoy -->
     <div class="panel" data-panel="today">
-      <div class="glass card today-head">
-        <div>
-          <h2 style="margin:0">Tu día</h2>
-          <p class="muted small" id="todaySub" style="margin:2px 0 0"></p>
-        </div>
-        <div class="count" id="todayCount" aria-live="polite">0/0</div>
-      </div>
-      <div class="meter" aria-hidden="true" style="margin:12px 2px 6px"><i id="todayMeter"></i></div>
+      <div id="welcome"></div>
+      <div class="glass card next" id="nextCard"></div>
+      <div class="row todaybar"><span class="muted small" id="todaySub"></span><span class="small"><b id="todayCount">0 de 0</b> pasos</span></div>
+      <div class="meter" aria-hidden="true" style="margin:8px 2px 12px"><i id="todayMeter"></i></div>
       <div id="unitChip"></div>
       <div id="steps" class="stack stagger"></div>
-      <div id="allset"></div>
     </div>
 
     <!-- Ruta -->
@@ -90,71 +85,72 @@
     <div class="panel" data-panel="progress" hidden>
       <div class="tiles stagger" id="tiles"></div>
       <div class="glass card" style="margin-top:14px">
-        <h2>Tus tarjetas por caja</h2>
-        <p class="muted small">Una tarjeta sube de caja cada vez que la recuerdas. Cuanto más arriba, más tarde vuelve a aparecer.</p>
-        <div class="bars" id="bars"></div>
-        <div class="barlabels" id="barLabels"></div>
+        <h2>Tus palabras</h2>
+        <div class="bars three" id="bars"></div>
+        <div class="barlabels three" id="barLabels"></div>
       </div>
       <div class="glass card" style="margin-top:14px">
         <h2>Nota del día</h2>
-        <p class="muted small">Cómo te fue, qué error repetiste, qué harás mañana. Se incluye en tu informe y completa el último paso de tu día.</p>
+        <p class="muted small">Cómo te fue y qué harás mañana. Con tres líneas basta.</p>
         <textarea id="note" rows="4" maxlength="4000" aria-label="Nota del día"></textarea>
         <div class="msg good" id="noteMsg"></div>
       </div>
-    </div>
-
-    <!-- Informe -->
-    <div class="panel" data-panel="report" hidden>
-      <div class="glass card">
-        <h2>Informe para compartir con una IA</h2>
-        <p class="muted">Descarga tus resultados del día o de la semana. Incluye tus errores, tus textos escritos, tu práctica de pronunciación e instrucciones para la IA: te corrige los textos, te propone un plan de repaso y te devuelve contenido nuevo listo para importar.</p>
-        <div class="row" style="margin-top:14px">
-          <a class="btn" id="repDay" href="#" download>Informe de hoy</a>
-          <a class="btn" id="repWeek" href="#" download>Informe de la semana</a>
-          <button class="btn ghost" type="button" id="btnCopyWeek">Copiar informe semanal</button>
+      <details class="glass card box" id="reportBox" style="margin-top:14px">
+        <summary>Compartir mis resultados con una IA</summary>
+        <p class="muted small" style="margin-top:12px">Descarga un resumen de lo que estudiaste y pégalo en la IA que prefieras: te corrige los textos, te dice qué practicar y te prepara ejercicios nuevos.</p>
+        <div class="row">
+          <a class="btn" id="repDay" href="#" download>Resumen de hoy</a>
+          <a class="btn" id="repWeek" href="#" download>Resumen de la semana</a>
+          <button class="btn ghost" type="button" id="btnCopyWeek">Copiar el de la semana</button>
         </div>
         <div class="msg" id="repMsg" role="status"></div>
-      </div>
+      </details>
     </div>
 
     <!-- Cuenta -->
     <div class="panel" data-panel="account" hidden>
       <div class="glass card" style="margin-bottom:14px">
-        <h2>Apariencia</h2>
-        <p class="muted small">«Noche suave» baja el brillo y el contraste, con grises cálidos, para sesiones largas de estudio.</p>
+        <h2>Cómo se ve</h2>
+        <p class="muted small" style="margin-bottom:6px">Tema</p>
         <div class="row">
           <button class="btn ghost" type="button" data-themeopt="dark">Oscuro</button>
           <button class="btn ghost" type="button" data-themeopt="soft">Noche suave</button>
           <button class="btn ghost" type="button" data-themeopt="light">Claro</button>
         </div>
-      </div>
-      <div class="glass card" style="margin-bottom:14px">
-        <h2>Rendimiento</h2>
-        <p class="muted small">El modo ligero quita el desenfoque y las animaciones del fondo. Úsalo si tu teléfono va lento o quieres ahorrar batería.</p>
+        <p class="muted small" style="margin:16px 0 6px">Rendimiento</p>
         <div class="row">
           <button class="btn ghost" type="button" data-liteopt="off">Normal</button>
           <button class="btn ghost" type="button" data-liteopt="on">Modo ligero</button>
         </div>
+        <p class="tiny muted" style="margin:12px 0 0">«Noche suave» cansa menos los ojos. El modo ligero ayuda si tu teléfono va lento.</p>
       </div>
       <div class="glass card" style="margin-bottom:14px">
+        <h2>Mi estudio</h2>
+        <div class="row" style="justify-content:space-between">
+          <label for="newPerDay" style="margin:0;font-weight:400">Palabras nuevas por día</label>
+          <select id="newPerDay" aria-label="Palabras nuevas por día"><option>3</option><option>5</option><option>10</option><option>15</option><option>20</option></select>
+        </div>
+      </div>
+      <div class="glass card" id="installCard" style="margin-bottom:14px" hidden>
         <div class="brandrow"><img class="logo" src="/icons/icon.svg" alt="" width="44" height="44"><h2 style="margin:0">Instalar la app</h2></div>
         <p class="muted" id="installText" style="margin-top:10px"></p>
         <button class="btn" type="button" id="btnInstall" hidden>Instalar app</button>
       </div>
       <div class="glass card">
-        <h2>Tu cuenta</h2>
+        <h2>Mi cuenta</h2>
         <p class="muted" id="accName"></p>
-        <form id="pwForm" style="margin-top:8px">
-          <h3 style="margin-top:6px">Cambiar contraseña</h3>
-          <label for="pwCur">Contraseña actual</label>
-          <input type="password" id="pwCur" autocomplete="current-password" required>
-          <label for="pwNew">Contraseña nueva (mínimo 8 caracteres)</label>
-          <input type="password" id="pwNew" autocomplete="new-password" required minlength="8">
-          <div class="row" style="margin-top:16px"><button class="btn" type="submit">Guardar contraseña</button></div>
-          <div class="msg" id="pwMsg" role="alert"></div>
-        </form>
-        <hr style="border:0;border-top:1px solid var(--glass-line);margin:18px 0">
-        <button class="btn ghost" type="button" id="btnLogout">Cerrar sesión</button>
+        <details class="soft">
+          <summary>Cambiar contraseña</summary>
+          <form id="pwForm">
+            <label for="pwCur">Contraseña actual</label>
+            <input type="password" id="pwCur" autocomplete="current-password" required>
+            <label for="pwNew">Contraseña nueva (mínimo 8 caracteres)</label>
+            <input type="password" id="pwNew" autocomplete="new-password" required minlength="8">
+            <div class="row" style="margin-top:16px"><button class="btn" type="submit">Guardar contraseña</button></div>
+            <div class="msg" id="pwMsg" role="alert"></div>
+          </form>
+        </details>
+        <button class="btn ghost" type="button" id="btnLogout" style="margin-top:6px">Cerrar sesión</button>
       </div>
     </div>
 
@@ -163,7 +159,6 @@
         <button class="tab" role="tab" data-tab="today" aria-selected="true" type="button">Hoy</button>
         <button class="tab" role="tab" data-tab="path" aria-selected="false" type="button">Ruta</button>
         <button class="tab" role="tab" data-tab="progress" aria-selected="false" type="button">Progreso</button>
-        <button class="tab" role="tab" data-tab="report" aria-selected="false" type="button">Informe</button>
         <button class="tab" role="tab" data-tab="account" aria-selected="false" type="button">Cuenta</button>
       </div>
     </nav>
@@ -258,10 +253,11 @@ async function loadHome() {
   const t = today();
   const [d, s, n, pth] = await Promise.all([api('/api/decks?today=' + t), api('/api/stats?today=' + t), api('/api/note?day=' + t), api('/api/path')]);
   decksCache = d.decks; pathData = pth;
+  $('newPerDay').value = String(newPerDay());
   todayUnit = currentUnit();
   todayData = await api('/api/today?today=' + t + '&new=' + newPerDay() + (todayUnit ? '&unit=' + todayUnit.id : ''));
   $('hello').textContent = 'Hola, ' + user.username;
-  $('helloSub').textContent = 'Un paso a la vez: lee, practica, habla, escribe y cierra el día.';
+  $('helloSub').textContent = 'Un paso a la vez.';
   $('accName').textContent = 'Sesión iniciada como ' + user.username + '.';
   renderToday(); renderPath(); renderStats(s);
   $('note').value = n.text;
@@ -286,78 +282,107 @@ function showPanel(name) {
 }
 async function goHome(panel) { await loadHome(); if (panel) dockTabs.select(panel); }
 
-/* ---------- Hoy: el orden del día ---------- */
+/* ---------- Hoy: un paso a la vez ---------- */
+let todaySteps = [];
 function buildSteps(t) {
   const c = t.cards;
   const steps = [];
-  // 1. Repaso espaciado
+  const where = todayUnit ? ' de ' + unitLabel(todayUnit) : '';
+  // 1. Repasar
   steps.push({
-    title: 'Repaso espaciado', avail: c.decks > 0, done: c.decks > 0 && c.due === 0,
-    desc: c.due > 0 ? plural(c.due, 'tarjeta por repasar', 'tarjetas por repasar') + '. Repasa lo anterior antes de ver algo nuevo.'
-      : c.reviewedToday > 0 ? 'Repasaste ' + plural(c.reviewedToday, 'tarjeta', 'tarjetas') + ' hoy. Estás al día.'
-      : c.decks > 0 ? 'No tienes nada por repasar hoy.' : 'Todavía no hay tarjetas.',
+    title: 'Repasar', avail: c.decks > 0, done: c.decks > 0 && c.due === 0,
+    short: c.due > 0 ? plural(c.due, 'tarjeta', 'tarjetas') + ' por repasar' : (c.decks > 0 ? 'Todo al día' : 'Aún no hay tarjetas'),
+    desc: 'Repasa las ' + plural(c.due, 'tarjeta', 'tarjetas') + ' que ya viste, antes de aprender algo nuevo.',
     actions: c.due > 0 && c.dueDeck ? [{label: 'Repasar', act: 'study', id: c.dueDeck}] : []
   });
-  // 2. Tema nuevo (lección o palabras nuevas de tu unidad)
-  const where = todayUnit ? ' de ' + unitLabel(todayUnit) : '';
-  if (t.lesson.doneToday) steps.push({title: 'Tema nuevo', avail: true, done: true, desc: 'Leíste «' + t.lesson.todayTitle + '» hoy.', actions: []});
-  else if (t.lesson.next) steps.push({title: 'Tema nuevo', avail: true, done: false, desc: 'Lección: «' + t.lesson.next.title + '». Léela primero y practica después.', actions: [{label: 'Leer lección', act: 'study', id: t.lesson.next.id}]});
-  else if (c.newAvail > 0) steps.push({title: 'Tema nuevo', avail: true, done: false, desc: plural(c.newAvail, 'palabra nueva', 'palabras nuevas') + where + ' para hoy.', actions: c.newDeck ? [{label: 'Aprender', act: 'study', id: c.newDeck}] : []});
-  else if (c.newToday > 0) steps.push({title: 'Tema nuevo', avail: true, done: true, desc: 'Aprendiste ' + plural(c.newToday, 'palabra nueva', 'palabras nuevas') + ' hoy.', actions: []});
-  else steps.push({title: 'Tema nuevo', avail: false, done: false, desc: 'Todavía no hay lecciones ni palabras nuevas.', actions: []});
+  // 2. Aprender algo nuevo
+  if (t.lesson.doneToday) steps.push({title: 'Aprender algo nuevo', avail: true, done: true, short: 'Lección leída', desc: '', actions: []});
+  else if (t.lesson.next) steps.push({title: 'Aprender algo nuevo', avail: true, done: false, short: t.lesson.next.title, desc: 'Lee la lección «' + t.lesson.next.title + '»: es lo nuevo de hoy.', actions: [{label: 'Leer la lección', act: 'study', id: t.lesson.next.id}]});
+  else if (c.newAvail > 0) steps.push({title: 'Aprender algo nuevo', avail: true, done: false, short: plural(c.newAvail, 'palabra nueva', 'palabras nuevas'), desc: 'Aprende ' + plural(c.newAvail, 'palabra nueva', 'palabras nuevas') + where + '.', actions: c.newDeck ? [{label: 'Aprender', act: 'study', id: c.newDeck}] : []});
+  else if (c.newToday > 0) steps.push({title: 'Aprender algo nuevo', avail: true, done: true, short: plural(c.newToday, 'palabra nueva', 'palabras nuevas'), desc: '', actions: []});
+  else steps.push({title: 'Aprender algo nuevo', avail: false, done: false, short: 'Aún no hay lecciones', desc: '', actions: []});
   // 3. Hablar o escribir (cualquiera de las dos cuenta)
   const spoke = t.speakingToday || 0;
   const canSpeak = c.decks > 0 || t.lesson.total > 0;
   if (t.writing.doneToday || spoke >= 3) {
-    const bits = [];
-    if (t.writing.doneToday) bits.push('Escribiste «' + t.writing.todayTitle + '».');
-    if (spoke) bits.push('Practicaste tu pronunciación ' + plural(spoke, 'vez', 'veces') + '.');
-    steps.push({title: 'Hablar o escribir', avail: true, done: true, desc: bits.join(' ') + ' Producir es lo que más rápido fija lo aprendido.', actions: []});
+    steps.push({title: 'Hablar o escribir', avail: true, done: true, short: t.writing.doneToday ? 'Escribiste tu texto' : 'Practicaste tu voz', desc: '', actions: []});
   } else if (t.writing.next || canSpeak) {
     const acts = [];
     if (canSpeak) acts.push({label: 'Hablar', act: 'speak'});
-    if (t.writing.next) acts.push({label: 'Escribir', act: 'study', id: t.writing.next.id, ghost: true});
-    steps.push({title: 'Hablar o escribir', avail: true, done: false,
-      desc: (spoke ? 'Llevas ' + plural(spoke, 'frase hablada', 'frases habladas') + ' (con 3 basta). ' : '') + 'Practica tu pronunciación en voz alta' + (t.writing.next ? ' o escribe la tarea «' + t.writing.next.title + '»' : '') + '.', actions: acts});
-  } else steps.push({title: 'Hablar o escribir', avail: false, done: false, desc: 'Todavía no hay frases ni tareas de escritura.', actions: []});
-  // 4. Leer contenido real
-  if (t.reading.doneToday) steps.push({title: 'Leer y escuchar', avail: true, done: true, desc: 'Completaste «' + t.reading.todayTitle + '» hoy.', actions: []});
-  else if (t.reading.next) steps.push({title: 'Leer y escuchar', avail: true, done: false, desc: 'Lectura: «' + t.reading.next.title + '». Léela, escúchala y responde las preguntas.', actions: [{label: 'Leer', act: 'study', id: t.reading.next.id}]});
-  else steps.push({title: 'Leer y escuchar', avail: false, done: false, desc: 'Todavía no hay lecturas.', actions: []});
-  // 5. Cierre
+    if (t.writing.next) acts.push({label: 'Escribir', act: 'study', id: t.writing.next.id, ghost: canSpeak});
+    steps.push({title: 'Hablar o escribir', avail: true, done: false, short: canSpeak ? 'Di 3 frases en voz alta' : 'Escribe un texto',
+      desc: (spoke ? 'Llevas ' + plural(spoke, 'frase', 'frases') + ': con 3 basta. ' : '') + 'Di unas frases en voz alta' + (t.writing.next ? ' o escribe un texto corto' : '') + '. Usar el idioma es lo que más ayuda.', actions: acts});
+  } else steps.push({title: 'Hablar o escribir', avail: false, done: false, short: 'Aún no hay frases', desc: '', actions: []});
+  // 4. Leer
+  if (t.reading.doneToday) steps.push({title: 'Leer', avail: true, done: true, short: 'Lectura hecha', desc: '', actions: []});
+  else if (t.reading.next) steps.push({title: 'Leer', avail: true, done: false, short: t.reading.next.title, desc: 'Lee «' + t.reading.next.title + '», escúchala y responde unas preguntas.', actions: [{label: 'Leer', act: 'study', id: t.reading.next.id}]});
+  else steps.push({title: 'Leer', avail: false, done: false, short: 'Aún no hay lecturas', desc: '', actions: []});
+  // 5. Cerrar el día
   steps.push({
-    title: 'Cierre del día', avail: true, done: t.note,
-    desc: t.note ? 'Ya anotaste cómo te fue hoy.' : 'Anota cómo te fue, qué error repetiste y qué harás mañana.',
-    actions: t.note ? [] : [{label: 'Escribir nota', act: 'goto', panel: 'progress'}]
+    title: 'Anotar cómo te fue', avail: true, done: t.note,
+    short: t.note ? 'Hecho' : 'Tres líneas bastan',
+    desc: 'Escribe cómo te fue hoy y qué harás mañana. Con tres líneas basta.',
+    actions: t.note ? [] : [{label: 'Escribir la nota', act: 'goto', panel: 'progress'}]
   });
   return steps;
 }
+function actionButton(a, primary) {
+  return '<button class="btn ' + (primary ? 'big' : 'ghost') + '" type="button" data-act="' + a.act + '"' + (a.id ? ' data-id="' + a.id + '"' : '') + (a.panel ? ' data-panel-go="' + a.panel + '"' : '') + '>' + esc(a.label) + '</button>';
+}
 function renderToday() {
   if (!todayData) return;
-  const steps = buildSteps(todayData);
-  const avail = steps.filter(s => s.avail), done = avail.filter(s => s.done).length;
+  todaySteps = buildSteps(todayData);
+  const avail = todaySteps.filter(s => s.avail), done = avail.filter(s => s.done).length;
+  const next = todaySteps.find(s => s.avail && !s.done);
   const dateStr = new Date().toLocaleDateString('es', {weekday: 'long', day: 'numeric', month: 'long'});
   $('todaySub').textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-  $('todayCount').textContent = done + '/' + avail.length;
+  $('todayCount').textContent = done + ' de ' + avail.length;
   requestAnimationFrame(() => { $('todayMeter').style.width = (avail.length ? Math.round(done * 100 / avail.length) : 0) + '%'; });
+
+  // bienvenida (solo la primera vez)
+  $('welcome').innerHTML = lsGet('welcome:' + user.id) ? '' :
+    '<div class="glass card welcome"><h2>Bienvenido</h2><p>Cada día tienes unos pasos cortos, de 15 a 20 minutos en total. Pulsa el botón de <b>Tu siguiente paso</b> y la app te lleva a lo que toca. Para elegir otra unidad, ve a <b>Ruta</b>.</p><button class="btn ghost sm" type="button" data-act="welcomeok">Entendido</button></div>';
+
+  // el siguiente paso, grande y claro
+  const card = $('nextCard');
+  if (next) {
+    card.innerHTML = '<div class="tiny muted">Tu siguiente paso</div><h2>' + esc(next.title) + '</h2><p class="muted">' + esc(next.desc) + '</p>' +
+      '<div class="row">' + next.actions.map((a, i) => actionButton(a, i === 0)).join('') + '</div>';
+  } else if (avail.length) {
+    card.innerHTML = '<div class="tiny muted">Hoy</div><h2>¡Día completo!</h2><p class="muted">Terminaste todos los pasos. Buen trabajo: mañana seguimos.</p><div class="row"><button class="btn big" type="button" data-act="goto" data-panel-go="progress">Ver mi progreso</button></div>';
+  } else {
+    card.innerHTML = '<div class="tiny muted">Hoy</div><h2>Todavía no hay contenido</h2><p class="muted">Cuando la administración publique unidades, tus pasos del día aparecerán aquí.</p>';
+  }
+  replay(card, 'enter');
+
   $('unitChip').innerHTML = todayUnit
-    ? '<div class="unitchip glass"><div class="t"><div class="tiny muted">Tu unidad actual</div><b>' + esc(unitLabel(todayUnit)) + ' · ' + esc(todayUnit.title) + '</b></div><button class="btn ghost sm" type="button" data-act="gopath">Cambiar</button></div>'
+    ? '<div class="unitchip glass"><div class="t"><div class="tiny muted">Tu unidad</div><b>' + esc(unitLabel(todayUnit)) + ' · ' + esc(todayUnit.title) + '</b></div><button class="btn ghost sm" type="button" data-act="gopath">Cambiar</button></div>'
     : '';
+
+  // la lista completa, compacta
   const el = $('steps');
-  el.innerHTML = steps.map((s, i) =>
-    '<article class="step glass ' + (!s.avail ? 'na' : s.done ? 'done' : 'todo') + '">' +
-    '<div class="stepnum">' + (s.done ? CHECK : (i + 1)) + '</div>' +
-    '<div class="grow"><h3>' + esc(s.title) + '</h3><p class="muted small">' + esc(s.desc) + '</p></div>' +
-    s.actions.map(a => '<button class="btn sm ' + (a.ghost ? 'ghost' : '') + '" type="button" data-act="' + a.act + '"' + (a.id ? ' data-id="' + a.id + '"' : '') + (a.panel ? ' data-panel-go="' + a.panel + '"' : '') + '>' + esc(a.label) + '</button>').join('') +
-    '</article>').join('');
+  el.innerHTML = todaySteps.map((s, i) => {
+    const cls = !s.avail ? 'na' : s.done ? 'done' : 'todo';
+    const inner = '<div class="stepnum">' + (s.done ? CHECK : (i + 1)) + '</div><div class="grow"><h3>' + esc(s.title) + '</h3><p class="muted small">' + esc(s.short) + '</p></div>';
+    return (s.avail && !s.done && s.actions.length)
+      ? '<button type="button" class="step glass ' + cls + '" data-step="' + i + '">' + inner + '</button>'
+      : '<article class="step glass ' + cls + '">' + inner + '</article>';
+  }).join('');
   stagger(el);
-  $('allset').innerHTML = avail.length && done === avail.length ? '<div class="glass allset">Día completo. Buen trabajo: mañana seguimos.</div>' : '';
+}
+function runAction(a) {
+  if (a.act === 'study') startStudy(a.id).catch(err => { if (err.message !== 'auth') toast(err.message, 'bad'); });
+  else if (a.act === 'speak') startSpeaking().catch(err => { if (err.message !== 'auth') toast(err.message, 'bad'); });
+  else if (a.act === 'goto') { dockTabs.select(a.panel); }
 }
 $('home').addEventListener('click', e => {
+  const row = e.target.closest('button[data-step]');
+  if (row) { const st = todaySteps[Number(row.dataset.step)]; if (st && st.actions[0]) { if (st.actions[0].act === 'goto') { runAction(st.actions[0]); setTimeout(() => $('note').focus({preventScroll: true}), 250); } else runAction(st.actions[0]); } return; }
   const b = e.target.closest('button[data-act]'); if (!b) return;
-  if (b.dataset.act === 'goto') { dockTabs.select(b.dataset.panelGo); setTimeout(() => $('note').focus({preventScroll: true}), 250); }
+  if (b.dataset.act === 'goto') { dockTabs.select(b.dataset.panelGo); if (b.dataset.panelGo === 'progress' && todayData && !todayData.note) setTimeout(() => $('note').focus({preventScroll: true}), 250); }
   if (b.dataset.act === 'gopath') { pathState.unitId = null; renderPath(); dockTabs.select('path'); }
   if (b.dataset.act === 'speak') startSpeaking().catch(err => { if (err.message !== 'auth') toast(err.message, 'bad'); });
+  if (b.dataset.act === 'welcomeok') { lsSet('welcome:' + user.id, true); $('welcome').innerHTML = ''; }
 });
 
 /* ---------- Ruta: niveles y unidades ---------- */
@@ -377,7 +402,7 @@ function unitCard(u, recId) {
   return '<button class="unit glass" type="button" data-unit="' + u.id + '"><div class="utop"><span class="num">' + esc(unitLabel(u)) + '</span><h3>' + esc(u.title) + tag + '</h3></div>' +
     (u.description ? '<p class="muted small">' + esc(u.description) + '</p>' : '') +
     '<div class="progress ' + (unitDone(u) ? 'full' : '') + '" aria-label="Avance"><i data-w="' + pct + '"></i></div>' +
-    '<div class="tiny muted" style="margin-top:6px">' + u.done + ' de ' + u.total + ' mazos hechos</div></button>';
+    '<div class="tiny muted" style="margin-top:6px">' + u.done + ' de ' + u.total + ' partes hechas</div></button>';
 }
 function animateProgress() {
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -404,24 +429,21 @@ function renderPath() {
     pathState.level = (pathData.level && levels.some(l => l.level === pathData.level)) ? pathData.level
       : (cur && levels.some(l => l.level === cur.level && cur.audience === 'general') ? cur.level : (levels[0] ? levels[0].level : null));
   }
-  let html = '<div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">Tu ruta</h2>' +
-    '<div class="row"><label for="newPerDay" class="small muted" style="margin:0;font-weight:400">Palabras nuevas por día</label>' +
-    '<select id="newPerDay" aria-label="Tarjetas nuevas por día"><option>0</option><option>3</option><option>5</option><option>10</option><option>15</option><option>20</option></select></div></div>';
+  let html = '<h2 style="margin:0 0 4px">Tu ruta</h2><p class="muted small" style="margin:0 0 6px">Elige una unidad. La app te recomienda la siguiente, pero puedes empezar por la que quieras.</p>';
   if (cur) html += '<div class="unitchip glass"><div class="t"><div class="tiny muted">Tu unidad actual</div><b>' + esc(unitLabel(cur)) + ' · ' + esc(cur.title) + '</b></div><button class="btn sm" type="button" data-unit="' + cur.id + '">Continuar</button></div>';
   if (pathData.personal.length) {
     html += '<div class="sectionlabel">Tu plan personalizado</div><div class="stack stagger">' + pathData.personal.map(u => unitCard(u, recId)).join('') + '</div>';
   }
   if (levels.length) {
-    html += '<div class="sectionlabel">Ruta general</div><div class="levels" role="group" aria-label="Nivel">' +
-      levels.map(l => '<button class="lvl" type="button" data-level="' + l.level + '" aria-pressed="' + (l.level === pathState.level) + '">' + l.level + '</button>').join('') + '</div>' +
-      '<p class="muted small hint-line">El nivel que elijas se usa para recomendarte la siguiente unidad.</p>' +
+    const pills = levels.length > 1
+      ? '<div class="levels" role="group" aria-label="Nivel">' + levels.map(l => '<button class="lvl" type="button" data-level="' + l.level + '" aria-pressed="' + (l.level === pathState.level) + '">' + l.level + '</button>').join('') + '</div>'
+      : '';
+    html += '<div class="sectionlabel">Ruta general' + (levels.length === 1 ? ' · nivel ' + levels[0].level : '') + '</div>' + pills +
       '<div class="stack stagger">' + levels.find(l => l.level === pathState.level).units.map(u => unitCard(u, recId)).join('') + '</div>';
   }
-  if (loose.length) html += '<div class="sectionlabel">Otros mazos</div><div class="stack stagger">' + loose.map(deckRow).join('') + '</div>';
+  if (loose.length) html += '<div class="sectionlabel">Más práctica</div><div class="stack stagger">' + loose.map(deckRow).join('') + '</div>';
   el.innerHTML = html;
   el.querySelectorAll('.stagger').forEach(stagger);
-  const sel = $('newPerDay'); const np = lsGet('newPerDay'); sel.value = String(np === null ? 5 : np);
-  sel.onchange = () => { lsSet('newPerDay', Number(sel.value)); loadHome().catch(() => {}); };
   animateProgress();
 }
 function renderUnitView(el, u) {
@@ -432,9 +454,9 @@ function renderUnitView(el, u) {
     '<div class="unithead glass"><div class="tiny muted">' + esc(unitLabel(u)) + (u.audience === 'personal' ? ' · plan personalizado' : '') + '</div><h2>' + esc(u.title) + '</h2>' +
     (u.description ? '<p class="muted">' + esc(u.description) + '</p>' : '') +
     '<div class="progress ' + (unitDone(u) ? 'full' : '') + '"><i data-w="' + pct + '"></i></div>' +
-    '<div class="tiny muted" style="margin:6px 0 10px">' + u.done + ' de ' + u.total + ' mazos hechos</div>' +
+    '<div class="tiny muted" style="margin:6px 0 10px">' + u.done + ' de ' + u.total + ' partes hechas</div>' +
     (isCur ? '<span class="tag rec" style="margin:0">Es tu unidad actual</span>' : '<button class="btn sm" type="button" data-act="setcurrent" data-id="' + u.id + '">Hacer de esta mi unidad actual</button>') + '</div>' +
-    '<div class="stack stagger">' + (decks.length ? decks.map(deckRow).join('') : '<div class="empty">Esta unidad todavía no tiene mazos.</div>') + '</div>';
+    '<div class="stack stagger">' + (decks.length ? decks.map(deckRow).join('') : '<div class="empty">Esta unidad todavía no tiene contenido.</div>') + '</div>';
   el.querySelectorAll('.stagger').forEach(stagger);
   animateProgress();
 }
@@ -462,15 +484,17 @@ function renderStats(s) {
   $('tiles').innerHTML =
     '<div class="tile glass"><b id="t1">0</b><span>' + (s.streak === 1 ? 'día seguido' : 'días seguidos') + '</span></div>' +
     '<div class="tile glass"><b id="t2">0</b><span>respuestas hoy</span></div>' +
-    '<div class="tile glass"><b id="t3">–</b><span>aciertos (7 días)</span></div>' +
-    '<div class="tile glass"><b id="t4">0</b><span>tarjetas dominadas</span></div>';
+    '<div class="tile glass"><b id="t3">–</b><span>aciertos esta semana</span></div>' +
+    '<div class="tile glass"><b id="t4">0</b><span>palabras que ya sabes</span></div>';
   stagger($('tiles'));
   countUp($('t1'), s.streak); countUp($('t2'), s.today);
   if (pct === null) $('t3').textContent = '–'; else countUp($('t3'), pct, ' %');
   countUp($('t4'), s.boxes[5]);
-  const max = Math.max(1, ...s.boxes);
-  $('bars').innerHTML = s.boxes.map(c => '<div class="bar"><span data-h="' + Math.round(c / max * 100) + '">' + (c || '') + '</span></div>').join('');
-  $('barLabels').innerHTML = ['Nuevas', 'Caja 1', 'Caja 2', 'Caja 3', 'Caja 4', 'Dominadas'].map(l => '<div>' + l + '</div>').join('');
+  const fresh = decksCache.filter(d => d.kind === 'cards').reduce((t, d) => t + d.fresh, 0);
+  const groups = [fresh, s.boxes[1] + s.boxes[2] + s.boxes[3] + s.boxes[4], s.boxes[5]];
+  const max = Math.max(1, ...groups);
+  $('bars').innerHTML = groups.map(c => '<div class="bar"><span data-h="' + Math.round(c / max * 100) + '">' + (c || '') + '</span></div>').join('');
+  $('barLabels').innerHTML = ['Por aprender', 'Aprendiendo', 'Ya las sabes'].map(l => '<div>' + l + '</div>').join('');
 }
 function animateBars() {
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -701,9 +725,9 @@ function showWriting(d) {
       lsSet(key, '');
       $('wcard').innerHTML = '<h2>Texto guardado</h2><p>' + r.words + ' palabras. Se incluirá en tu informe para que una IA lo corrija.</p>' +
         '<div class="callout">Ahora léelo en voz alta, despacio. Escribir y hablar juntos fijan mejor lo aprendido.</div>' +
-        '<div class="row" style="margin-top:12px"><button class="btn" id="btnToToday" type="button">Ir a mi día</button><button class="btn ghost" id="btnReadMine" type="button">Leer mi texto en voz alta</button><button class="btn ghost" id="btnCopyW" type="button">Copiar mi texto</button><button class="btn ghost" id="btnGoReport" type="button">Ir al informe</button></div><div id="wSlot"></div>';
+        '<div class="row" style="margin-top:12px"><button class="btn" id="btnToToday" type="button">Ir a mi día</button><button class="btn ghost" id="btnReadMine" type="button">Leer mi texto en voz alta</button><button class="btn ghost" id="btnCopyW" type="button">Copiar mi texto</button><button class="btn ghost" id="btnGoReport" type="button">Ver mi progreso</button></div><div id="wSlot"></div>';
       $('btnToToday').onclick = () => goHome('today').catch(() => {});
-      $('btnGoReport').onclick = () => goHome('report').catch(() => {});
+      $('btnGoReport').onclick = () => goHome('progress').catch(() => {});
       $('btnCopyW').onclick = async () => { if (await copyText(text)) toast('Texto copiado.', 'good'); };
       $('btnReadMine').onclick = () => toggleSpeech($('wSlot'), clip(text, 30), d.deckId);
       toast('Texto guardado.', 'good');
@@ -798,6 +822,7 @@ const isStandalone = () => (window.matchMedia && window.matchMedia('(display-mod
 function updateInstallUI() {
   const ua = navigator.userAgent || '';
   const isIos = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  $('installCard').hidden = isStandalone() || (!deferredPrompt && !isIos);
   $('btnInstall').hidden = !deferredPrompt;
   $('btnInstallTop').hidden = !deferredPrompt;
   $('installText').textContent = isStandalone()
@@ -824,6 +849,7 @@ if ('serviceWorker' in navigator) window.addEventListener('load', () => { naviga
 (async function init() {
   updateInstallUI();
   initTheme(); initLite(); initMobile();
+  $('newPerDay').onchange = () => { lsSet('newPerDay', Number($('newPerDay').value)); loadHome().catch(() => {}); };
   authTabs = makeTabs($('authTabs'), name => setMode(name));
   dockTabs = makeTabs($('dockTabs'), name => showPanel(name));
   try { config = await (await fetch('/api/config')).json(); } catch (e) { /* */ }

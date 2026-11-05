@@ -10,7 +10,18 @@
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
 <meta name="theme-color" content="#0D1424">
 <link rel="stylesheet" href="/styles.css">
-<style>.mini{box-shadow:none;background:var(--field);padding:12px 14px}</style>
+<style>
+.mini{box-shadow:none;background:var(--field);padding:12px 14px}
+.dest{display:grid;gap:10px;margin-top:6px}
+.destopt{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--glass-line);border-radius:var(--r-md);background:var(--field);cursor:pointer;margin:0;font-weight:400;transition:border-color .2s,background .25s,transform .2s var(--ease)}
+.destopt:active{transform:scale(.99)}
+.destopt input{margin-top:5px;width:auto;min-height:0;accent-color:var(--accent);flex:none}
+.destopt b{display:block;font-size:17px}
+.destopt small{color:var(--muted);font-size:14px}
+.destopt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.destuser{padding:0 0 4px 38px}
+#importMode{width:100%}
+</style>
 </head>
 <body class="admin">
 <div class="bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
@@ -55,7 +66,7 @@
     <!-- Contenido -->
     <div class="panel" data-panel="content">
       <h2>Unidades</h2>
-      <p class="muted small">Las unidades agrupan los mazos por nivel (A1, A2, B1...). Los usuarios solo ven las unidades <b>publicadas</b>. La audiencia <b>general</b> la ve todo el mundo; la <b>personal</b> solo las cuentas con plan personalizado.</p>
+      <p class="muted small">Las unidades agrupan los mazos por nivel (A1, A2, B1...). Los usuarios solo ven las unidades <b>publicadas</b>. Cada unidad tiene un <b>destinatario</b>: <b>Todos</b>, <b>Solo plan general</b> o <b>Solo</b> una cuenta personalizada. Puedes cambiarlo cuando quieras.</p>
       <div id="units" class="stack stagger" style="margin-top:12px"></div>
       <h2 style="margin-top:30px">Mazos sin unidad</h2>
       <p class="muted small">Mazos sueltos: los ven todos los usuarios cuando están publicados.</p>
@@ -117,6 +128,17 @@ tip: Empieza con I am...</pre>
           <button class="btn ghost sm" type="button" id="btnExample">Cargar ejemplo personal (Semana 1)</button>
           <button class="btn ghost sm" type="button" id="btnExampleGen">Cargar ruta general (A1.1 y A1.2)</button>
         </div>
+        <label style="margin-top:20px">¿Para quién es este contenido?</label>
+        <div class="dest" id="dest" role="radiogroup" aria-label="Destinatarios del contenido">
+          <label class="destopt"><input type="radio" name="dest" value="general"><span><b>Solo usuarios generales</b><small>Lo ven las cuentas con plan general. Las personalizadas, no.</small></span></label>
+          <label class="destopt"><input type="radio" name="dest" value="personal"><span><b>Solo un usuario personalizado</b><small>Tú eliges quién lo recibe.</small></span></label>
+          <div class="destuser" id="destUserBox" hidden>
+            <select id="destUser" aria-label="Usuario que recibe el contenido"></select>
+            <p class="small muted" id="destUserHelp" style="margin:6px 0 0"></p>
+          </div>
+          <label class="destopt"><input type="radio" name="dest" value="all" checked><span><b>Todos</b><small>Lo ven todas las cuentas, con plan general o personalizado.</small></span></label>
+        </div>
+        <p class="tiny muted" style="margin:8px 0 0">Los mazos sueltos, sin unidad, los ven todos cuando están publicados.</p>
         <label class="check"><span class="switch"><input type="checkbox" id="publishNow" checked><i></i></span> Publicar para los usuarios al guardar</label>
         <label for="importMode">Si una unidad ya existe</label>
         <select id="importMode"><option value="add">Agregar los mazos nuevos a esa unidad</option><option value="replace">Reemplazar sus mazos (se pierde el progreso de esos mazos)</option></select>
@@ -131,7 +153,7 @@ tip: Empieza con I am...</pre>
     <!-- Usuarios -->
     <div class="panel" data-panel="users" hidden>
       <h2>Usuarios</h2>
-      <p class="muted small">Crea cuentas para ti y tus amigos. Para estudiar usa una cuenta <b>normal</b>; la de administración solo gestiona contenido.</p>
+      <p class="muted small">Crea cuentas para ti y tus amigos. Para estudiar usa una cuenta <b>normal</b>; la de administración solo gestiona contenido. El <b>plan</b> decide qué recibe cada cuenta: <b>General</b> ve lo que sea para «Todos» y lo de «Solo plan general»; <b>Personalizado</b> ve lo de «Todos» y lo que le asignes a esa cuenta.</p>
       <div class="glass card" style="margin-top:12px">
         <h3>Crear usuario</h3>
         <form id="newUserForm">
@@ -140,7 +162,7 @@ tip: Empieza con I am...</pre>
             <div><label for="nuPass">Contraseña (mínimo 8)</label><input type="password" id="nuPass" autocomplete="new-password" required minlength="8"></div>
           </div>
           <label for="nuProfile">Plan</label>
-          <select id="nuProfile"><option value="general">General (ruta general)</option><option value="personal">Personalizado (ruta general + unidades personales)</option></select>
+          <select id="nuProfile"><option value="general">General (recibe lo de «Todos» y lo de «Solo plan general»)</option><option value="personal">Personalizado (recibe lo de «Todos» y lo que le asignes)</option></select>
           <label class="check"><span class="switch"><input type="checkbox" id="nuAdmin"><i></i></span> Cuenta de administración (no recomendado para estudiar)</label>
           <div class="row" style="margin-top:14px"><button class="btn" type="submit">Crear usuario</button></div>
           <div class="msg" id="nuMsg" role="alert"></div>
@@ -227,6 +249,7 @@ function switchPanel(name) {
   });
   if (name === 'content') loadContent().catch(handle);
   if (name === 'users') loadUsers().catch(handle);
+  if (name === 'import') loadDestUsers().catch(handle);
 }
 function handle(err) { if (err.message !== 'auth') toast(err.message, 'bad'); }
 
@@ -269,18 +292,30 @@ function deckCardHtml(d, nested) {
     '<button class="btn danger sm" data-act="del" type="button">Eliminar</button></div>' +
     '<div class="deck-extra" hidden></div></article>';
 }
+let personalUsers = [];
+const audLabel = u => u.audience === 'all' ? 'Todos' : u.audience === 'general' ? 'Solo plan general' : (u.username ? 'Solo ' + u.username : 'Plan personalizado');
+function audOptions(u) {
+  const cur = u.audience === 'personal' ? 'personal:' + (u.user_id || '') : u.audience;
+  let html = '<option value="all"' + (cur === 'all' ? ' selected' : '') + '>Todos</option><option value="general"' + (cur === 'general' ? ' selected' : '') + '>Solo plan general</option>';
+  const list = personalUsers.slice();
+  if (u.user_id && !list.some(x => x.id === u.user_id)) list.push({id: u.user_id, username: u.username || ('usuario ' + u.user_id)});
+  html += list.map(x => '<option value="personal:' + x.id + '"' + (cur === 'personal:' + x.id ? ' selected' : '') + '>Solo ' + esc(x.username) + '</option>').join('');
+  if (u.audience === 'personal' && !u.user_id) html += '<option value="personal:" selected>Todas las cuentas personalizadas</option>';
+  return html;
+}
 async function loadContent() {
-  const [ur, dr] = await Promise.all([api('/api/admin/units'), api('/api/admin/decks')]);
+  const [ur, dr, us] = await Promise.all([api('/api/admin/units'), api('/api/admin/decks'), api('/api/admin/users?today=' + today())]);
   contentCache = {units: ur.units, decks: dr.decks};
+  personalUsers = us.users.filter(x => !x.is_admin && x.profile === 'personal');
   const uEl = $('units');
   if (!ur.units.length) uEl.innerHTML = '<div class="empty">Aún no hay unidades. En «Importar» puedes cargar la ruta general o tu ejemplo personal.</div>';
   else uEl.innerHTML = ur.units.map(u =>
     '<article class="deck glass" data-unit="' + u.id + '" data-title="' + esc(uLabel(u) + ' · ' + u.title) + '">' +
-    '<div class="grow"><h3>' + esc(uLabel(u)) + ' · ' + esc(u.title) + '<span class="tag ' + (u.audience === 'personal' ? 'warm' : '') + '">' + (u.audience === 'personal' ? 'Personal' : 'General') + '</span>' +
+    '<div class="grow"><h3>' + esc(uLabel(u)) + ' · ' + esc(u.title) + '<span class="tag ' + (u.audience === 'personal' ? 'warm' : '') + '">' + esc(audLabel(u)) + '</span>' +
     '<span class="tag ' + (u.published ? '' : 'off') + ' pubtag">' + (u.published ? 'Publicada' : 'Borrador') + '</span></h3>' +
     '<div class="muted small">' + (u.description ? esc(u.description) + ' · ' : '') + u.decks + (u.decks === 1 ? ' mazo' : ' mazos') + '</div></div>' +
     '<label class="row small" style="margin:0;font-weight:600">Publicada <span class="switch"><input type="checkbox" data-uact="pub"' + (u.published ? ' checked' : '') + ' aria-label="Publicar unidad ' + esc(uLabel(u)) + '"><i></i></span></label>' +
-    '<div class="row" style="width:100%"><label class="row small muted" style="margin:0;font-weight:400">Audiencia <select data-uact="aud" aria-label="Audiencia"><option value="general"' + (u.audience === 'general' ? ' selected' : '') + '>General</option><option value="personal"' + (u.audience === 'personal' ? ' selected' : '') + '>Personal</option></select></label>' +
+    '<div class="row" style="width:100%"><label class="row small muted" style="margin:0;font-weight:400">Para <select data-uact="aud" aria-label="Destinatario de la unidad">' + audOptions(u) + '</select></label>' +
     '<button class="btn ghost sm" data-uact="view" type="button">Ver mazos</button>' +
     '<button class="btn ghost sm" data-uact="edit" type="button">Editar unidad como texto</button>' +
     '<button class="btn danger sm" data-uact="del" type="button">Eliminar</button></div>' +
@@ -343,6 +378,8 @@ $('units').addEventListener('click', async e => {
       const r = await api('/api/admin/units/' + id);
       $('importText').value = r.text;
       $('importMode').value = 'replace';
+      await loadDestUsers();
+      setDest(r.unit.audience, r.unit.user_id);
       $('importResult').innerHTML = '<div class="prev">Unidad «' + esc(title) + '» cargada como texto. Edítala y pulsa <b>Revisar</b> y <b>Guardar</b>: con «Reemplazar» sus mazos se sustituyen por los del texto (se pierde el progreso de esos mazos).</div>';
       tabs.select('import');
     }
@@ -362,21 +399,46 @@ $('units').addEventListener('change', async e => {
       toast(b.checked ? 'Unidad publicada: ya la ven los usuarios con acceso.' : 'Unidad oculta para los usuarios.', 'good');
     }
     if (b.dataset.uact === 'aud') {
-      await api('/api/admin/units/' + id, {method: 'PATCH', body: {audience: b.value}});
-      toast(b.value === 'personal' ? 'Ahora es personal: solo la ven cuentas con plan personalizado.' : 'Ahora es general: la ven todos.', 'good');
+      const v = b.value;
+      if (v === 'personal:') return; // "todas las cuentas personalizadas" es el estado antiguo; no se puede elegir de nuevo
+      const body = v.indexOf('personal:') === 0 ? {audience: 'personal', userId: Number(v.slice(9))} : {audience: v};
+      await api('/api/admin/units/' + id, {method: 'PATCH', body});
+      toast(v === 'all' ? 'Ahora la ven todos.' : v === 'general' ? 'Ahora la ven solo las cuentas de plan general.' : 'Ahora la ve solo la cuenta elegida.', 'good');
       await loadContent();
     }
   } catch (err) { handle(err); if (b.type === 'checkbox') b.checked = !b.checked; else await loadContent().catch(() => {}); }
 });
 
 /* ---------- importar ---------- */
+let destUsers = [];
+const destValue = () => (document.querySelector('input[name="dest"]:checked') || {}).value || 'all';
+function updateDestUI() { $('destUserBox').hidden = destValue() !== 'personal'; }
+function setDest(aud, userId) {
+  const v = (aud === 'general' || aud === 'personal') ? aud : 'all';
+  const r = document.querySelector('input[name="dest"][value="' + v + '"]'); if (r) r.checked = true;
+  if (v === 'personal' && userId && destUsers.some(u => u.id === userId)) $('destUser').value = String(userId);
+  updateDestUI();
+}
+async function loadDestUsers() {
+  const r = await api('/api/admin/users?today=' + today());
+  destUsers = r.users.filter(u => !u.is_admin && u.profile === 'personal');
+  const sel = $('destUser'), prev = sel.value;
+  sel.innerHTML = destUsers.map(u => '<option value="' + u.id + '">' + esc(u.username) + '</option>').join('');
+  if (prev && destUsers.some(u => String(u.id) === prev)) sel.value = prev;
+  $('destUserHelp').textContent = destUsers.length
+    ? 'Solo aparecen las cuentas con plan personalizado.'
+    : 'Todavía no hay cuentas con plan personalizado. En la pestaña Usuarios, ponle ese plan a quien quieras.';
+  updateDestUI();
+}
+document.querySelectorAll('input[name="dest"]').forEach(r => r.addEventListener('change', updateDestUI));
+const destLabelOf = u => u.audience === 'all' ? 'para todos' : u.audience === 'general' ? 'solo usuarios generales' : 'solo ' + (u.username || 'cuentas personalizadas');
 $('btnCopyFormat').onclick = async () => { if (await copyText($('formatExample').textContent)) toast('Ejemplo copiado.', 'good'); };
 $('btnExampleGen').onclick = async () => {
-  try { const r = await fetch('/curriculo-A1-general.txt'); if (!r.ok) throw new Error(); $('importText').value = await r.text(); toast('Ruta general cargada (2 unidades). Pulsa «Revisar».', 'good'); }
+  try { const r = await fetch('/curriculo-A1-general.txt'); if (!r.ok) throw new Error(); $('importText').value = await r.text(); setDest('all'); toast('Ruta general cargada (2 unidades), con destino «Todos». Pulsa «Revisar».', 'good'); }
   catch (e) { toast('No pude cargar el ejemplo.', 'bad'); }
 };
 $('btnExample').onclick = async () => {
-  try { const r = await fetch('/ejemplo-semana1.txt'); if (!r.ok) throw new Error(); $('importText').value = await r.text(); toast('Ejemplo personal cargado (1 unidad, 11 mazos). Pulsa «Revisar».', 'good'); }
+  try { const r = await fetch('/ejemplo-semana1.txt'); if (!r.ok) throw new Error(); $('importText').value = await r.text(); await loadDestUsers(); setDest('personal', destUsers[0] && destUsers[0].id); toast(destUsers.length ? 'Ejemplo personal cargado: elige el usuario que lo recibe. Pulsa «Revisar».' : 'Ejemplo cargado, pero aún no hay cuentas con plan personalizado (pestaña Usuarios).', 'good'); }
   catch (e) { toast('No pude cargar el ejemplo.', 'bad'); }
 };
 $('importFile').addEventListener('change', async e => {
@@ -387,13 +449,15 @@ $('importFile').addEventListener('change', async e => {
 async function doImport(dry) {
   const out = $('importResult'); out.innerHTML = '';
   try {
-    const r = await api('/api/admin/import', {method: 'POST', body: {text: $('importText').value, published: $('publishNow').checked, mode: $('importMode').value, dryRun: dry}});
+    const dest = destValue();
+    if (dest === 'personal' && !destUsers.length) { out.innerHTML = '<div class="msg bad">Para dárselo a un usuario personalizado, primero ponle ese plan en la pestaña Usuarios.</div>'; return; }
+    const r = await api('/api/admin/import', {method: 'POST', body: {text: $('importText').value, published: $('publishNow').checked, mode: $('importMode').value, audience: dest, userId: dest === 'personal' ? Number($('destUser').value) : undefined, dryRun: dry}});
     const decks = (dry ? r.preview : r.created);
     let html = '<div class="prev"><b>' + (dry ? 'Todo en orden. Se crearían:' : (r.published ? 'Guardado y publicado:' : 'Guardado como borrador:')) + '</b>';
     if (r.units && r.units.length) {
       html += '<ul style="margin:6px 0 0;padding-left:20px">' + r.units.map(u => {
         const n = decks.filter(d => d.unit === u.level + '.' + u.number).length;
-        return '<li><b>Unidad ' + esc(u.level + '.' + u.number) + ' · ' + esc(u.title) + '</b> (' + (u.audience === 'personal' ? 'personal' : 'general') + ') · ' + n + (n === 1 ? ' mazo' : ' mazos') +
+        return '<li><b>Unidad ' + esc(u.level + '.' + u.number) + ' · ' + esc(u.title) + '</b> (' + destLabelOf(u) + ') · ' + n + (n === 1 ? ' mazo' : ' mazos') +
           (u.exists ? ' · <span class="muted">ya existe: ' + (r.mode === 'replace' ? 'se reemplazan sus mazos' : 'se agregan los mazos nuevos') + '</span>' : '') + '</li>';
       }).join('') + '</ul>';
     }
@@ -418,7 +482,7 @@ async function loadUsers() {
   const el = $('users');
   el.innerHTML = r.users.map(u => {
     const pct = u.week_total ? Math.round(u.week_ok * 100 / u.week_total) + ' %' : '–';
-    return '<article class="user-row glass" data-id="' + u.id + '" data-name="' + esc(u.username) + '">' +
+    return '<article class="user-row glass" data-id="' + u.id + '" data-name="' + esc(u.username) + '" data-pu="' + (u.personal_units || 0) + '">' +
       '<div class="row" style="justify-content:space-between"><div><span class="name">' + esc(u.username) + '</span>' +
       (u.is_admin ? '<span class="tag">Administración</span>' : '') + (u.id === r.me ? '<span class="tag off">tú</span>' : '') + (!u.is_admin && u.profile === 'personal' ? '<span class="tag warm">Plan personalizado</span>' : '') +
       '<div class="chips"><span class="chip">Creado ' + esc(u.created) + '</span>' +
@@ -453,7 +517,7 @@ $('users').addEventListener('click', async e => {
       $('dOk').onclick = () => d.close();
     }
     if (b.dataset.act === 'deluser') {
-      if (!(await confirmDialog('¿Eliminar a ' + name + '?', 'Se borra su cuenta y todo su progreso y resultados. No se puede deshacer.', 'Eliminar usuario', true))) return;
+      if (!(await confirmDialog('¿Eliminar a ' + name + '?', 'Se borra su cuenta y todo su progreso y resultados.' + (Number(row.dataset.pu) ? ' También se borran las ' + row.dataset.pu + ' unidad(es) creadas solo para esta cuenta.' : '') + ' No se puede deshacer.', 'Eliminar usuario', true))) return;
       await api('/api/admin/users/' + id, {method: 'DELETE'}); toast('Usuario eliminado.', 'good'); await loadUsers();
     }
   } catch (err) { handle(err); }

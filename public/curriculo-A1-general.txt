@@ -1,9 +1,9 @@
-// Ruta GENERAL: unidades A1.1 y A1.2 para todos los usuarios (temas cotidianos).
+// Ruta GENERAL: unidades A1.1 y A1.2 con temas cotidianos.
+// El destinatario se elige en el panel al importar: todos, solo usuarios de plan general, o un usuario personalizado.
 // Importar en el panel de administración: Importar -> Revisar -> Guardar.
 // Después, publica cada unidad cuando la hayas revisado (pestaña Contenido).
 
 @unit A1.1 Saludos y presentaciones
-audience: general
 desc: Saludar, despedirte, presentarte y decir de dónde eres con el verbo to be.
 
 @lesson A1.1 - Lección: saludos y el verbo to be
@@ -87,7 +87,6 @@ tip: Empieza así: Hello! My name is...
 tip: Revisa que cada frase tenga el verbo to be (am / is / are) cuando lo necesite.
 
 @unit A1.2 Mi familia y mi casa
-audience: general
 desc: Hablar de tu familia y tu casa con have / has y my, your, his, her, our, their.
 
 @lesson A1.2 - Lección: have / has y los posesivos

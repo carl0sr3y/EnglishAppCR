@@ -2,7 +2,7 @@
 // Servicio de la app instalable.
 // - Archivos de la app: primero la red (así siempre ves la versión más nueva) y, si no hay conexión, la copia guardada.
 // - Datos (/api) y administración (/admin): nunca se guardan; siempre van a la red.
-const CACHE = 'tarjetas-v3';
+const CACHE = 'tarjetas-v4';
 const PRECACHE = ['/offline.html', '/styles.css', '/common.js', '/speech.js', '/icons/icon.svg', '/icons/icon-192.png'];
 
 self.addEventListener('install', e => {

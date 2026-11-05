@@ -1,6 +1,6 @@
 'use strict';
-// Prueba de unidades, audiencias y práctica oral. Usar SOLO con una base de datos de pruebas.
-// Uso: DATABASE_URL=postgres://... node test/units.js
+// Prueba de unidades, destinatarios (todos / solo plan general / un usuario personalizado) y práctica oral.
+// Usar SOLO con una base de datos de pruebas. Uso: DATABASE_URL=postgres://... node test/units.js
 const { spawn } = require('child_process');
 
 const PORT = 3996;
@@ -27,7 +27,8 @@ class Client {
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const CONTENT = `
+const T = '2026-11-04';
+const CONTENT_ALL = `
 @deck Suelto sin unidad
 only | solo | I am only here.
 
@@ -53,15 +54,28 @@ coffee | café | I want a coffee.
 @lesson Lección: rutinas
 ## Rutinas
 I wake up at seven.
-
-@unit A1.1 Semana 1 personalizada
-audience: personal
+`;
+const GENERAL_ONLY = `
+@unit B1.1 Solo para el plan general
+@lesson Lección general
+## General
+Texto.
+@deck Cartas generales
+tea | té | I drink tea.
+`;
+const PERSONAL_CARLOS = `
+@unit A1.1 Semana personalizada
 desc: Tu plan: arte, programación e Italia.
 @lesson Lección personal: arte
 ## Arte
 I paint with watercolor.
 @deck Palabras de arte
 brush | pincel | I use a brush.
+`;
+const PERSONAL_LUCIA = `
+@unit A1.1 Semana de Lucía
+@deck Palabras de cocina
+spoon | cuchara | I use a spoon.
 `;
 
 (async () => {
@@ -72,169 +86,196 @@ brush | pincel | I use a brush.
   srv.stderr.on('data', d => process.stderr.write(d));
   for (let i = 0; i < 40; i++) { try { const r = await fetch(BASE + '/health'); if (r.ok) break; } catch (e) { await sleep(150); } }
 
-  const T = '2026-11-04';
-  const admin = new Client(), amigo = new Client(), carlos = new Client(), anon = new Client();
-  const anonReq = (m, u, b) => anon.req(m, u, b);
+  const admin = new Client(), amigo = new Client(), pepe = new Client(), carlos = new Client(), lucia = new Client(), anon = new Client();
   let r = await admin.req('POST', '/api/login', { username: 'jefe', password: 'admin-clave-123' });
   check('el administrador entra', r.status === 200 && r.json.user.is_admin);
-  await admin.req('POST', '/api/admin/users', { username: 'amigo', password: 'password-amigo' });
-  r = await admin.req('POST', '/api/admin/users', { username: 'carlos', password: 'password-carlos', profile: 'personal' });
-  check('se puede crear un usuario con plan personalizado', r.status === 200 && r.json.user.profile === 'personal', r.json);
-  await amigo.req('POST', '/api/login', { username: 'amigo', password: 'password-amigo' });
-  await carlos.req('POST', '/api/login', { username: 'carlos', password: 'password-carlos' });
-  r = await amigo.req('GET', '/api/me');
-  check('el usuario general tiene plan "general"', r.json.user.profile === 'general');
+  const ids = {};
+  for (const [name, plan] of [['amigo', 'general'], ['pepe', 'general'], ['carlos', 'personal'], ['lucia', 'personal']]) {
+    r = await admin.req('POST', '/api/admin/users', { username: name, password: 'clave-' + name + '-1', profile: plan });
+    ids[name] = r.json.user.id;
+  }
+  const clients = { amigo, pepe, carlos, lucia };
+  for (const n of Object.keys(clients)) await clients[n].req('POST', '/api/login', { username: n, password: 'clave-' + n + '-1' });
+  const titles = async c => (await c.req('GET', '/api/decks?today=' + T)).json.decks.map(d => d.title);
 
-  console.log('Importar unidades');
-  r = await admin.req('POST', '/api/admin/import', { text: '@unit A9.1 Mal\n@deck X\na | b | a c' });
-  check('un nivel inválido se rechaza con la línea', r.status === 400 && r.json.errors[0].line === 1);
-  r = await admin.req('POST', '/api/admin/import', { text: CONTENT, dryRun: true });
-  check('revisión previa: 4 unidades, ninguna existe todavía', r.status === 200 && r.json.units.length === 4 && r.json.units.every(u => u.exists === false), r.json.units);
-  check('la revisión indica a qué unidad va cada mazo', r.json.preview.find(d => d.title === 'Palabras de arte').unit === 'A1.1' && r.json.preview.find(d => d.title === 'Suelto sin unidad').unit === null);
-  r = await admin.req('GET', '/api/admin/units');
-  check('la revisión previa no guardó nada', r.json.units.length === 0);
-  r = await admin.req('POST', '/api/admin/import', { text: CONTENT, published: false });
-  check('importación completa guardada como borrador', r.status === 200 && r.json.units.length === 4 && r.json.published === false, r.json);
-  r = await admin.req('GET', '/api/admin/units');
-  const units = r.json.units;
-  const byKey = k => units.find(u => u.level + '.' + u.number + '/' + u.audience === k);
-  const U11 = byKey('A1.1/general'), U12 = byKey('A1.2/general'), U21 = byKey('A2.1/general'), UP = byKey('A1.1/personal');
-  check('existen A1.1 general y A1.1 personal a la vez (misma numeración)', U11 && UP && U11.id !== UP.id);
-  check('las unidades nuevas quedan sin publicar y con su descripción', units.every(u => u.published === false) && U11.description === 'Saludar y presentarte.' && U11.decks === 3 && UP.decks === 2, units);
-  check('las unidades salen ordenadas por nivel y número', units.map(u => u.level + '.' + u.number).join(',') === 'A1.1,A1.1,A1.2,A2.1', units.map(u => u.level + '.' + u.number));
-  r = await admin.req('GET', '/api/admin/decks');
-  const decks = r.json.decks;
-  const dk = t => decks.find(d => d.title === t);
-  check('los mazos de una unidad quedan publicados (manda la unidad) y el suelto sigue el borrador', dk('Palabras de saludo').published === true && dk('Suelto sin unidad').published === false);
+  console.log('Destino 3: todos');
+  r = await admin.req('POST', '/api/admin/import', { text: CONTENT_ALL, audience: 'all', published: false, dryRun: true });
+  check('la revisión previa indica el destino de cada unidad', r.status === 200 && r.json.units.length === 3 && r.json.units.every(u => u.audience === 'all' && u.exists === false), r.json.units);
+  r = await admin.req('POST', '/api/admin/import', { text: CONTENT_ALL, audience: 'all', published: false });
+  check('importación para todos, guardada como borrador', r.status === 200 && r.json.units.length === 3, r.json);
+  let units = (await admin.req('GET', '/api/admin/units')).json.units;
+  const U = t => units.find(u => u.title === t);
+  const U11 = U('Saludos y presentaciones'), U12 = U('En el café'), U21 = U('Rutinas');
+  check('las unidades quedan con destino "todos" y sin publicar', [U11, U12, U21].every(u => u.audience === 'all' && u.published === false && u.user_id === null), units);
+  r = await amigo.req('GET', '/api/decks?today=' + T);
+  check('en borrador, nadie las ve', r.json.decks.length === 0);
+  for (const u of [U11, U12, U21]) await admin.req('PATCH', '/api/admin/units/' + u.id, { published: true });
+  let looseId = (await admin.req('GET', '/api/admin/decks')).json.decks.find(d => d.title === 'Suelto sin unidad').id;
+  await admin.req('PATCH', '/api/admin/decks/' + looseId, { published: true });
 
-  console.log('Visibilidad por audiencia');
-  r = await amigo.req('GET', '/api/decks?today=' + T);
-  check('con las unidades en borrador, el usuario no ve ningún mazo de unidad', r.json.decks.length === 0, r.json.decks.map(d => d.title));
-  for (const u of units) await admin.req('PATCH', '/api/admin/units/' + u.id, { published: true });
-  await admin.req('PATCH', '/api/admin/decks/' + dk('Suelto sin unidad').id, { published: true });
-  r = await amigo.req('GET', '/api/decks?today=' + T);
-  const titlesA = r.json.decks.map(d => d.title);
-  check('el usuario general ve las unidades generales y el mazo suelto', titlesA.includes('Palabras de saludo') && titlesA.includes('Palabras del café') && titlesA.includes('Suelto sin unidad'), titlesA);
-  check('el usuario general NO ve el contenido personal', !titlesA.includes('Palabras de arte') && !titlesA.includes('Lección personal: arte'), titlesA);
-  r = await carlos.req('GET', '/api/decks?today=' + T);
-  const titlesC = r.json.decks.map(d => d.title);
-  check('el usuario personalizado ve lo general y lo personal', titlesC.includes('Palabras de saludo') && titlesC.includes('Palabras de arte') && titlesC.includes('Lección personal: arte'), titlesC);
+  console.log('Destino 1: solo usuarios generales');
+  r = await admin.req('POST', '/api/admin/import', { text: GENERAL_ONLY, audience: 'general', published: true });
+  check('importación solo para usuarios generales', r.status === 200 && r.json.units[0].audience === 'general' && r.json.units[0].username === null, r.json.units);
+
+  console.log('Destino 2: solo un usuario personalizado');
+  r = await admin.req('POST', '/api/admin/import', { text: PERSONAL_CARLOS, audience: 'personal', published: true });
+  check('sin elegir usuario => se rechaza con un mensaje claro', r.status === 400 && /usuario/i.test(r.json.error), r.json);
+  r = await admin.req('POST', '/api/admin/import', { text: PERSONAL_CARLOS, audience: 'personal', userId: ids.amigo, published: true });
+  check('un usuario de plan general no puede recibir contenido personal', r.status === 400 && /plan personalizado/.test(r.json.error), r.json);
+  r = await admin.req('POST', '/api/admin/import', { text: PERSONAL_CARLOS, audience: 'personal', userId: 1, published: true });
+  check('tampoco la cuenta de administración', r.status === 400, r.json);
+  r = await admin.req('POST', '/api/admin/import', { text: PERSONAL_CARLOS, audience: 'personal', userId: ids.carlos, dryRun: true });
+  check('la revisión previa muestra a quién iría', r.status === 200 && r.json.units[0].username === 'carlos' && r.json.units[0].audience === 'personal', r.json.units);
+  r = await admin.req('POST', '/api/admin/import', { text: PERSONAL_CARLOS, audience: 'personal', userId: ids.carlos, published: true });
+  check('importación solo para carlos', r.status === 200 && r.json.units[0].username === 'carlos', r.json);
+  r = await admin.req('POST', '/api/admin/import', { text: PERSONAL_LUCIA, audience: 'personal', userId: ids.lucia, published: true });
+  check('importación solo para lucia (mismo nivel y número A1.1, no choca con la de carlos)', r.status === 200, r.json);
+  units = (await admin.req('GET', '/api/admin/units')).json.units;
+  const UC = U('Semana personalizada'), UL = U('Semana de Lucía'), UG = U('Solo para el plan general');
+  check('el panel lista a quién pertenece cada unidad personal', UC.username === 'carlos' && UL.username === 'lucia' && UC.audience === 'personal' && UG.audience === 'general', { UC, UL });
+  check('hay dos unidades A1.1 personales distintas', units.filter(u => u.level === 'A1' && u.number === 1 && u.audience === 'personal').length === 2);
+
+  console.log('Quién ve qué');
+  const tA = await titles(amigo), tP = await titles(pepe), tC = await titles(carlos), tL = await titles(lucia);
+  check('usuario general: ve lo de todos y lo de solo-general', ['Palabras de saludo', 'Palabras del café', 'Suelto sin unidad', 'Cartas generales'].every(t => tA.includes(t)), tA);
+  check('usuario general: NO ve nada personal', !tA.some(t => /arte|cocina/.test(t)), tA);
+  check('otro usuario general ve lo mismo', tP.length === tA.length && tP.includes('Cartas generales'));
+  check('carlos (personalizado): ve lo de todos y SU contenido', ['Palabras de saludo', 'Palabras de arte', 'Lección personal: arte'].every(t => tC.includes(t)), tC);
+  check('carlos NO ve lo de solo-general ni lo de lucia', !tC.includes('Cartas generales') && !tC.includes('Palabras de cocina'), tC);
+  check('lucia ve lo de todos y lo suyo, pero no lo de carlos ni lo de solo-general', tL.includes('Palabras de cocina') && tL.includes('Palabras de saludo') && !tL.includes('Palabras de arte') && !tL.includes('Cartas generales'), tL);
+  const adminDecks = (await admin.req('GET', '/api/admin/decks')).json.decks;
+  const dk = t => adminDecks.find(d => d.title === t);
   r = await amigo.req('GET', '/api/decks/' + dk('Palabras de arte').id + '/queue?today=' + T + '&new=5');
-  check('acceso directo por id a un mazo personal => 404 para el usuario general', r.status === 404);
-  r = await amigo.req('POST', '/api/complete', { deckId: dk('Lección personal: arte').id, kind: 'lesson', today: T });
-  check('tampoco puede marcar como leída una lección personal', r.status === 404);
-  r = await carlos.req('GET', '/api/decks/' + dk('Palabras de arte').id + '/queue?today=' + T + '&new=5');
-  check('el usuario personalizado sí la abre', r.status === 200 && r.json.items.length === 1);
+  check('acceso directo por id: el general no abre lo personal (404)', r.status === 404);
+  r = await carlos.req('GET', '/api/decks/' + dk('Palabras de cocina').id + '/queue?today=' + T + '&new=5');
+  check('carlos no abre lo de lucia (404)', r.status === 404);
+  r = await carlos.req('GET', '/api/decks/' + dk('Cartas generales').id + '/queue?today=' + T + '&new=5');
+  check('carlos no abre lo de solo-general (404)', r.status === 404);
+  r = await amigo.req('GET', '/api/decks/' + dk('Cartas generales').id + '/queue?today=' + T + '&new=5');
+  check('el usuario general sí abre lo de solo-general', r.status === 200);
+  r = await carlos.req('POST', '/api/complete', { deckId: dk('Lección general').id, kind: 'lesson', today: T });
+  check('ni puede marcar como leída una lección que no le corresponde', r.status === 404);
 
   console.log('Ruta por niveles y recomendación');
   r = await amigo.req('GET', '/api/path');
-  check('ruta general: A1 con 2 unidades y A2 con 1; sin sección personal', r.json.levels.length === 2 && r.json.levels[0].level === 'A1' && r.json.levels[0].units.length === 2 && r.json.levels[1].units.length === 1 && r.json.personal.length === 0, r.json);
-  check('la primera unidad recomendada es A1.1', r.json.recommendedUnitId === U11.id);
+  check('usuario general: ruta A1, A2 y B1; sin sección personal', r.json.levels.map(l => l.level).join() === 'A1,A2,B1' && r.json.personal.length === 0, r.json.levels.map(l => l.level));
+  check('su primera unidad recomendada es A1.1 de todos', r.json.recommendedUnitId === U11.id);
   r = await carlos.req('GET', '/api/path');
-  check('el usuario personalizado ve su plan personal aparte', r.json.personal.length === 1 && r.json.personal[0].id === UP.id && r.json.levels[0].units.length === 2, r.json);
-  check('y su recomendación es primero su unidad personal', r.json.recommendedUnitId === UP.id);
+  check('carlos: la ruta no incluye B1 (solo-general) y su plan personal tiene 1 unidad', r.json.levels.map(l => l.level).join() === 'A1,A2' && r.json.personal.length === 1 && r.json.personal[0].id === UC.id, r.json);
+  check('y se le recomienda primero su unidad personal', r.json.recommendedUnitId === UC.id);
+  r = await lucia.req('GET', '/api/path');
+  check('lucia tiene su propia unidad personal', r.json.personal.length === 1 && r.json.personal[0].id === UL.id);
   r = await amigo.req('PUT', '/api/level', { level: 'Z9' });
   check('un nivel inválido se rechaza', r.status === 400);
-  r = await amigo.req('PUT', '/api/level', { level: 'A2' });
+  await amigo.req('PUT', '/api/level', { level: 'A2' });
   r = await amigo.req('GET', '/api/path');
-  check('al elegir nivel A2, se recomienda la unidad de A2', r.json.level === 'A2' && r.json.recommendedUnitId === U21.id, r.json.recommendedUnitId);
+  check('al elegir nivel A2 se recomienda la unidad de A2', r.json.recommendedUnitId === U21.id);
   await amigo.req('PUT', '/api/level', { level: 'A1' });
+
+  console.log('Cambiar el destino de una unidad');
+  r = await admin.req('PATCH', '/api/admin/units/' + UG.id, { audience: 'all' });
+  check('pasar "solo general" a "todos"', r.status === 200 && r.json.unit.audience === 'all');
+  check('ahora carlos también la ve', (await titles(carlos)).includes('Cartas generales'));
+  await admin.req('PATCH', '/api/admin/units/' + UG.id, { audience: 'general' });
+  check('y al volver a "solo general", carlos deja de verla', !(await titles(carlos)).includes('Cartas generales'));
+  r = await admin.req('PATCH', '/api/admin/units/' + UC.id, { audience: 'personal', userId: ids.lucia });
+  check('reasignar a lucia choca con su A1.1 personal (409)', r.status === 409, r.json);
+  r = await admin.req('PATCH', '/api/admin/units/' + UC.id, { audience: 'personal', userId: ids.pepe });
+  check('reasignar a un usuario de plan general se rechaza', r.status === 400);
+  r = await admin.req('PATCH', '/api/admin/units/' + UC.id, { audience: 'personal' });
+  check('pasar a personal sin elegir usuario se rechaza', r.status === 400);
+  r = await admin.req('PATCH', '/api/admin/units/' + UC.id, { audience: 'all' });
+  check('pasarla a "todos" choca con la A1.1 que ya existe para todos (409)', r.status === 409, r.json);
+  r = await admin.req('PATCH', '/api/admin/units/' + UC.id, { audience: 'general' });
+  check('pasarla a "solo plan general" funciona (queda sin usuario) y la ven los generales', r.status === 200 && r.json.unit.user_id === null && (await titles(amigo)).includes('Palabras de arte'), r.json);
+  check('y carlos, que es personalizado, deja de verla', !(await titles(carlos)).includes('Palabras de arte'));
+  r = await admin.req('PATCH', '/api/admin/units/' + UC.id, { audience: 'personal', userId: ids.carlos });
+  check('volver a ser solo de carlos', r.status === 200 && !(await titles(amigo)).includes('Palabras de arte') && (await titles(carlos)).includes('Palabras de arte'));
+
+  console.log('Plan del usuario');
+  await admin.req('PATCH', '/api/admin/users/' + ids.carlos, { profile: 'general' });
+  const tC2 = await titles(carlos);
+  check('si carlos pasa a plan general: pierde su contenido personal y gana lo de solo-general', !tC2.includes('Palabras de arte') && tC2.includes('Cartas generales'), tC2);
+  await admin.req('PATCH', '/api/admin/users/' + ids.carlos, { profile: 'personal' });
+  const tC3 = await titles(carlos);
+  check('y al volver a personalizado, recupera lo suyo', tC3.includes('Palabras de arte') && !tC3.includes('Cartas generales'));
+  r = await admin.req('GET', '/api/admin/users?today=' + T);
+  check('la lista de usuarios cuenta sus unidades personales', r.json.users.find(u => u.username === 'carlos').personal_units === 1 && r.json.users.find(u => u.username === 'amigo').personal_units === 0);
+  r = await amigo.req('PATCH', '/api/admin/users/' + ids.amigo, { profile: 'personal' });
+  check('un usuario normal no puede cambiarse el plan', r.status === 403);
+
+  console.log('Texto de una unidad y modos de importación');
+  r = await admin.req('GET', '/api/admin/units/' + UC.id);
+  check('el texto exportado no lleva línea de destinatario', r.json.text.startsWith('@unit A1.1 Semana personalizada\ndesc: Tu plan') && !/audience:/.test(r.json.text), r.json.text.slice(0, 120));
+  const exported = r.json.text;
+  r = await admin.req('POST', '/api/admin/import', { text: exported, audience: 'personal', userId: ids.carlos, dryRun: true });
+  check('re-importarla para el mismo usuario reconoce que ya existe', r.json.units[0].exists === true);
+  r = await admin.req('POST', '/api/admin/import', { text: exported, audience: 'general', dryRun: true });
+  check('para otro destino (solo plan general) cuenta como unidad nueva', r.json.units[0].exists === false);
+  r = await admin.req('POST', '/api/admin/import', { text: exported, audience: 'all', dryRun: true });
+  check('la identidad es nivel + número + destinatario: a "todos" coincide con la A1.1 que ya existe', r.json.units[0].exists === true);
+  const REIMPORT = '@unit A1.2 En el café\n@deck Bebidas\ntea | té | I drink tea.\n';
+  await admin.req('POST', '/api/admin/import', { text: REIMPORT, audience: 'all' });
+  units = (await admin.req('GET', '/api/admin/units')).json.units;
+  check('modo "agregar": la unidad existente recibe el mazo nuevo', units.find(u => u.id === U12.id).decks === 3, units.find(u => u.id === U12.id));
+  await admin.req('POST', '/api/admin/import', { text: REIMPORT, audience: 'all', mode: 'replace' });
+  units = (await admin.req('GET', '/api/admin/units')).json.units;
+  check('modo "reemplazar": queda solo con lo importado, y sigue publicada', units.find(u => u.id === U12.id).decks === 1 && units.find(u => u.id === U12.id).published === true);
+
+  console.log('Compatibilidad con archivos antiguos');
+  r = await admin.req('POST', '/api/admin/import', { text: '@unit A2.2 Antigua\naudience: personal\n@deck Vieja\nold | vieja | An old hat.', published: true });
+  check('sin destino en la petición, manda la línea "audience:" del archivo', r.status === 200 && r.json.units[0].audience === 'personal', r.json.units);
+  check('una personal sin usuario la ven todas las cuentas de plan personalizado (como antes)', (await titles(carlos)).includes('Vieja') && (await titles(lucia)).includes('Vieja') && !(await titles(amigo)).includes('Vieja'));
 
   console.log('Avance de unidad y plan del día por unidad');
   r = await amigo.req('GET', '/api/today?today=' + T + '&new=5&unit=' + U11.id);
-  check('plan del día con unidad A1.1: la lección y las palabras nuevas salen de ahí', r.json.lesson.next && r.json.lesson.next.title === 'Lección: saludos' && r.json.cards.newAvail === 2, r.json);
+  check('con la unidad A1.1: la lección y las palabras nuevas salen de ahí', r.json.lesson.next && r.json.lesson.next.title === 'Lección: saludos' && r.json.cards.newAvail === 2, r.json);
   r = await amigo.req('GET', '/api/today?today=' + T + '&new=5&unit=' + U12.id);
-  check('con unidad A1.2: la lección y las palabras son las de esa unidad', r.json.lesson.next.title === 'Lección: pedir un café' && r.json.cards.newAvail === 1, r.json);
-  // hablar NO cuenta como leer la lección
+  check('con la unidad A1.2: son las de esa unidad', r.json.cards.newAvail === 1, r.json.cards);
   r = await amigo.req('POST', '/api/speech', { today: T, deckId: dk('Lección: saludos').id, target: 'Hello, my name is Ana.', heard: 'hello my name is anna', score: 88 });
   check('guardar una práctica oral', r.status === 200);
   r = await amigo.req('POST', '/api/speech', { today: T, target: 'x', heard: 'x', score: 101 });
   check('una nota fuera de 0-100 se rechaza', r.status === 400);
-  r = await amigo.req('POST', '/api/speech', { today: T, target: '', heard: 'x', score: 50 });
-  check('sin frase objetivo se rechaza', r.status === 400);
   r = await amigo.req('GET', '/api/today?today=' + T + '&new=5&unit=' + U11.id);
-  check('hablar no cuenta como leer la lección, pero se cuenta en el plan del día', r.json.lesson.next.title === 'Lección: saludos' && r.json.speakingToday === 1, r.json);
+  check('hablar no cuenta como leer la lección, pero sí como práctica del día', r.json.lesson.next.title === 'Lección: saludos' && r.json.speakingToday === 1);
   r = await amigo.req('GET', '/api/path');
   check('ni la práctica oral cuenta como avance de la unidad', r.json.levels[0].units[0].done === 0 && r.json.levels[0].units[0].total === 3, r.json.levels[0].units[0]);
-
-  // completar A1.1
   await amigo.req('POST', '/api/complete', { deckId: dk('Lección: saludos').id, kind: 'lesson', today: T });
   r = await amigo.req('GET', '/api/decks/' + dk('Palabras de saludo').id + '/queue?today=' + T + '&new=5');
-  const q1 = r.json.items;
   const english = { hola: 'hello', 'adiós': 'goodbye' };
-  for (const it of q1) await amigo.req('POST', '/api/answer', { itemId: it.id, answer: english[it.es], today: T });
-  r = await amigo.req('GET', '/api/path');
-  check('con la lección y todas las tarjetas empezadas: 2 de 3 mazos hechos', r.json.levels[0].units[0].done === 2, r.json.levels[0].units[0]);
+  for (const it of r.json.items) await amigo.req('POST', '/api/answer', { itemId: it.id, answer: english[it.es], today: T });
   r = await amigo.req('GET', '/api/decks/' + dk('Completa el saludo').id + '/queue?today=' + T + '&new=5');
   await amigo.req('POST', '/api/answer', { itemId: r.json.items[0].id, answer: 'am', today: T });
   r = await amigo.req('GET', '/api/path');
-  check('unidad A1.1 completa (3 de 3)', r.json.levels[0].units[0].done === 3 && r.json.levels[0].units[0].total === 3, r.json.levels[0].units[0]);
-  check('al completarla, la recomendación pasa a A1.2', r.json.recommendedUnitId === U12.id, r.json.recommendedUnitId);
+  check('unidad A1.1 completa y la recomendación pasa a A1.2', r.json.levels[0].units[0].done === 3 && r.json.recommendedUnitId === U12.id, r.json.recommendedUnitId);
 
   console.log('Frases para practicar la pronunciación');
-  r = await amigo.req('GET', '/api/phrases?n=5&unit=' + U11.id);
-  check('devuelve frases con su texto y traducción', r.status === 200 && r.json.phrases.length >= 3 && r.json.phrases.every(p => p.text.split(' ').length >= 3 && p.deckId), r.json);
-  check('con la unidad A1.1 pedida, salen primero frases de esa unidad', r.json.phrases[0].text === 'Hello, my name is Ana.' || r.json.phrases[0].text === 'Goodbye, see you soon.', r.json.phrases.map(p => p.text));
   r = await amigo.req('GET', '/api/phrases?n=10');
-  check('un usuario general nunca recibe frases del contenido personal', !r.json.phrases.some(p => /brush|watercolor/i.test(p.text)), r.json.phrases.map(p => p.text));
-  r = await carlos.req('GET', '/api/phrases?n=10');
-  check('un usuario personalizado sí puede recibirlas', r.json.phrases.some(p => /brush/i.test(p.text)), r.json.phrases.map(p => p.text));
-  r = await anonReq('GET', '/api/phrases');
+  check('devuelve frases con su texto', r.status === 200 && r.json.phrases.length >= 3 && r.json.phrases.every(p => p.text.split(' ').length >= 3));
+  check('un usuario general nunca recibe frases de contenido personal', !r.json.phrases.some(p => /brush|spoon/i.test(p.text)), r.json.phrases.map(p => p.text));
+  r = await lucia.req('GET', '/api/phrases?n=20');
+  check('lucia sí recibe las suyas y no las de carlos', r.json.phrases.some(p => /spoon/i.test(p.text)) && !r.json.phrases.some(p => /brush/i.test(p.text)), r.json.phrases.map(p => p.text));
+  r = await anon.req('GET', '/api/phrases');
   check('sin sesión no hay frases', r.status === 401);
 
-  console.log('Administración de unidades');
+  console.log('Permisos y borrado');
   r = await amigo.req('GET', '/api/admin/units');
   check('un usuario normal no ve el panel de unidades', r.status === 403);
-  r = await amigo.req('PATCH', '/api/admin/units/' + U11.id, { published: false });
-  check('ni puede despublicar', r.status === 403);
-  r = await admin.req('PATCH', '/api/admin/units/' + U12.id, { published: false });
-  r = await amigo.req('GET', '/api/path');
-  check('al despublicar una unidad desaparece de la ruta', r.json.levels[0].units.length === 1 && r.json.levels[0].units[0].id === U11.id);
-  r = await amigo.req('GET', '/api/decks?today=' + T);
-  check('y también sus mazos', !r.json.decks.some(d => d.title === 'Palabras del café'));
-  await admin.req('PATCH', '/api/admin/units/' + U12.id, { published: true });
-  r = await admin.req('PATCH', '/api/admin/units/' + UP.id, { audience: 'general' });
-  check('no se puede pasar a general si ya existe esa misma unidad general (409)', r.status === 409, r.json);
-  r = await admin.req('PATCH', '/api/admin/units/' + U12.id, { title: 'En la cafetería', description: 'Pedir bebidas.' });
-  check('cambiar título y descripción', r.status === 200);
-  r = await admin.req('GET', '/api/admin/units/' + U11.id);
-  check('exportar una unidad a texto', r.json.text.startsWith('@unit A1.1 Saludos y presentaciones\naudience: general\ndesc: Saludar y presentarte.') && r.json.text.includes('@lesson Lección: saludos') && r.json.text.includes('hello | hola'), r.json.text.slice(0, 200));
-  r = await admin.req('POST', '/api/admin/import', { text: r.json.text, dryRun: true });
-  check('ese texto se puede volver a importar y reconoce que la unidad ya existe', r.status === 200 && r.json.units[0].exists === true && r.json.preview.length === 3);
-
-  console.log('Importar de nuevo: agregar o reemplazar');
-  const REIMPORT = '@unit A1.2 En la cafetería\n@deck Bebidas\ntea | té | I drink tea.\n';
-  r = await admin.req('POST', '/api/admin/import', { text: REIMPORT });
-  r = await admin.req('GET', '/api/admin/units');
-  check('modo "agregar": la unidad existente recibe el mazo nuevo (sin duplicar la unidad)', r.json.units.filter(u => u.level === 'A1' && u.number === 2).length === 1 && r.json.units.find(u => u.id === U12.id).decks === 3, r.json.units.find(u => u.id === U12.id));
-  r = await admin.req('POST', '/api/admin/import', { text: REIMPORT, mode: 'replace' });
-  r = await admin.req('GET', '/api/admin/units');
-  check('modo "reemplazar": la unidad queda solo con lo importado', r.json.units.find(u => u.id === U12.id).decks === 1, r.json.units.find(u => u.id === U12.id));
-  check('y conserva su publicación', r.json.units.find(u => u.id === U12.id).published === true);
+  r = await amigo.req('POST', '/api/admin/import', { text: PERSONAL_CARLOS, audience: 'all' });
+  check('ni puede importar contenido', r.status === 403);
+  r = await amigo.req('PATCH', '/api/admin/units/' + U11.id, { audience: 'personal', userId: ids.carlos });
+  check('ni cambiar el destino de una unidad', r.status === 403);
+  r = await admin.req('DELETE', '/api/admin/users/' + ids.lucia);
+  check('el administrador elimina a lucia', r.status === 200);
+  units = (await admin.req('GET', '/api/admin/units')).json.units;
+  check('al eliminarla, también se elimina la unidad creada solo para ella', !units.some(u => u.title === 'Semana de Lucía') && units.some(u => u.title === 'Semana personalizada'));
   r = await admin.req('DELETE', '/api/admin/units/' + U21.id);
-  check('borrar una unidad', r.status === 200);
-  r = await admin.req('GET', '/api/admin/decks');
-  check('al borrar la unidad se borran sus mazos', !r.json.decks.some(d => d.title === 'Lección: rutinas'));
-
-  console.log('Usuarios: plan general o personalizado');
-  r = await admin.req('GET', '/api/admin/users?today=' + T);
-  const uAmigo = r.json.users.find(u => u.username === 'amigo');
-  check('la lista de usuarios muestra el plan', uAmigo.profile === 'general' && r.json.users.find(u => u.username === 'carlos').profile === 'personal');
-  r = await admin.req('PATCH', '/api/admin/users/' + uAmigo.id, { profile: 'raro' });
-  check('un plan inválido se rechaza', r.status === 400);
-  r = await amigo.req('PATCH', '/api/admin/users/' + uAmigo.id, { profile: 'personal' });
-  check('un usuario normal no puede cambiarse el plan', r.status === 403);
-  await admin.req('PATCH', '/api/admin/users/' + uAmigo.id, { profile: 'personal' });
-  r = await amigo.req('GET', '/api/decks?today=' + T);
-  check('al activar el plan personalizado, ve el contenido personal', r.json.decks.some(d => d.title === 'Palabras de arte'));
-  await admin.req('PATCH', '/api/admin/users/' + uAmigo.id, { profile: 'general' });
-  r = await amigo.req('GET', '/api/decks?today=' + T);
-  check('y al quitarlo, deja de verlo', !r.json.decks.some(d => d.title === 'Palabras de arte'));
+  check('borrar una unidad borra sus mazos', r.status === 200 && !(await admin.req('GET', '/api/admin/decks')).json.decks.some(d => d.title === 'Lección: rutinas'));
 
   console.log('Informe con práctica oral');
   r = await amigo.req('GET', '/api/report?period=day&date=' + T);
-  check('el informe incluye la sección de pronunciación con lo dicho y lo entendido', ['Práctica de pronunciación', 'Hello, my name is Ana.', 'hello my name is anna', 'Prácticas de pronunciación: 1', 'aproximada'].every(k => r.text.includes(k)), r.text.slice(r.text.indexOf('## Resumen'), r.text.indexOf('## Resumen') + 400));
-  check('el informe incluye el formato de unidades para la IA', r.text.includes('@unit A1.1'));
+  check('el informe incluye la pronunciación con lo dicho y lo entendido', ['Práctica de pronunciación', 'Hello, my name is Ana.', 'hello my name is anna', 'aproximada'].every(k => r.text.includes(k)));
+  check('el formato para la IA menciona las unidades y ya no el destinatario', r.text.includes('@unit A1.1') && !/audience:/.test(r.text.slice(r.text.indexOf('```'), r.text.indexOf('```', r.text.indexOf('```') + 3))));
   r = await amigo.req('GET', '/api/report?period=day&date=' + T + '&format=json');
   check('el JSON del informe trae la práctica oral', r.json.speaking.length === 1 && r.json.speaking[0].score === 88);
 

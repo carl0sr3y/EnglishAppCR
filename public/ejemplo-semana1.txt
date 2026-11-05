@@ -1,9 +1,8 @@
-// Ejemplo PERSONAL: tu Semana 1 (arte, programación e Italia) como una unidad del plan personalizado.
-// Solo la ven las cuentas con "Plan personalizado". Las cuentas generales no la ven.
+// Ejemplo PERSONAL: tu Semana 1 (arte, programación e Italia) como una unidad.
+// Al importarla, elige "Solo un usuario personalizado" y selecciona la cuenta que la recibe.
 // Importar en el panel de administración: Importar -> Revisar -> Guardar.
 
 @unit A1.1 Semana 1: arte, programación e Italia
-audience: personal
 desc: Tu plan: presente continuo y 30 palabras de arte, programación y cultura de otros países.
 
 @lesson Semana 1 - Lección: el verbo to be
