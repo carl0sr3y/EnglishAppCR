@@ -5,9 +5,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/smoke.js"
+    "test": "node test/speech.js && ALLOW_RESET=yes node test/reset.js && node test/smoke.js && ALLOW_RESET=yes node test/reset.js && node test/units.js"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "MIT",
   "dependencies": {
     "express": "^5.1.0",

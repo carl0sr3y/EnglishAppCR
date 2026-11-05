@@ -2,11 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>Administración · Tarjetas de idiomas</title>
-<script>try{document.documentElement.dataset.theme=(JSON.parse(localStorage.getItem("theme"))==="light")?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
+<script>try{document.documentElement.dataset.theme=(function(t){return t==="light"||t==="soft"?t:"dark"})(JSON.parse(localStorage.getItem("theme")))}catch(e){document.documentElement.dataset.theme="dark"}try{var l=JSON.parse(localStorage.getItem("lite"));if(l===null?(navigator.deviceMemory&&navigator.deviceMemory<=2):l===true)document.documentElement.dataset.lite="1"}catch(e){}</script>
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+<meta name="theme-color" content="#0D1424">
 <link rel="stylesheet" href="/styles.css">
+<style>.mini{box-shadow:none;background:var(--field);padding:12px 14px}</style>
 </head>
 <body class="admin">
 <div class="bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
@@ -17,8 +21,8 @@
   <section id="auth" hidden>
     <div class="authbox glass enter">
       <div class="row" style="justify-content:space-between">
-        <h1>Administración</h1>
-        <button class="btn ghost sm themebtn" type="button">Modo claro</button>
+        <div class="brandrow"><img class="logo" src="/icons/icon.svg" alt="" width="46" height="46"><h1>Administración</h1></div>
+        <button class="btn ghost sm themebtn" type="button">Oscuro</button>
       </div>
       <p class="muted" style="margin-top:8px">Solo para cuentas de administración. Para estudiar, usa la <a href="/">app</a> con tu cuenta de usuario.</p>
       <form id="authForm">
@@ -35,7 +39,7 @@
   <!-- ===== Panel ===== -->
   <section id="panel" hidden>
     <header class="topbar glass">
-      <span class="brand">Administración</span>
+      <span class="brand brandrow"><img class="logo" src="/icons/icon.svg" alt="" width="30" height="30" style="border-radius:9px">Administración</span>
       <div class="tabs" id="adminTabs" role="tablist">
         <button class="tab" role="tab" data-tab="content" aria-selected="true" type="button">Contenido</button>
         <button class="tab" role="tab" data-tab="import" aria-selected="false" type="button">Importar</button>
@@ -43,43 +47,79 @@
         <button class="tab" role="tab" data-tab="account" aria-selected="false" type="button">Cuenta</button>
       </div>
       <div class="row">
-        <button class="btn ghost sm themebtn" type="button">Modo claro</button>
+        <button class="btn ghost sm themebtn" type="button">Oscuro</button>
         <button class="btn ghost sm" type="button" id="btnLogout">Salir</button>
       </div>
     </header>
 
     <!-- Contenido -->
     <div class="panel" data-panel="content">
-      <h2>Mazos</h2>
-      <p class="muted small">Los usuarios solo ven los mazos <b>publicados</b>. Un borrador queda oculto hasta que lo publiques.</p>
+      <h2>Unidades</h2>
+      <p class="muted small">Las unidades agrupan los mazos por nivel (A1, A2, B1...). Los usuarios solo ven las unidades <b>publicadas</b>. La audiencia <b>general</b> la ve todo el mundo; la <b>personal</b> solo las cuentas con plan personalizado.</p>
+      <div id="units" class="stack stagger" style="margin-top:12px"></div>
+      <h2 style="margin-top:30px">Mazos sin unidad</h2>
+      <p class="muted small">Mazos sueltos: los ven todos los usuarios cuando están publicados.</p>
       <div id="decks" class="stack stagger" style="margin-top:12px"></div>
     </div>
 
     <!-- Importar -->
     <div class="panel" data-panel="import" hidden>
       <h2>Importar contenido</h2>
-      <p class="muted small">Pega texto en el formato de abajo o sube un archivo .txt. Aquí es el único lugar donde se cargan tarjetas y ejercicios.</p>
+      <p class="muted small">Pega texto en el formato de abajo o sube un archivo .txt. Aquí es el único lugar donde se carga el contenido: tarjetas, ejercicios, lecciones, lecturas y tareas de escritura.</p>
       <div class="glass card" style="margin-top:12px">
         <details id="formatHelp">
-          <summary style="cursor:pointer;font-weight:600">Ver el formato</summary>
-          <p class="small" style="margin-top:10px">Cada mazo empieza con <b>@deck</b> (tarjetas) o <b>@exercises</b> (ejercicios con hueco). Los campos van separados por <b>|</b>. Las líneas vacías y las que empiezan con <b>//</b> se ignoran.</p>
-          <pre id="formatExample">@deck Arte: primeras palabras
+          <summary style="cursor:pointer;font-weight:600">Ver el formato (5 tipos de contenido)</summary>
+          <p class="small" style="margin-top:10px">Para ordenar el contenido, agrupa los mazos en <b>unidades</b> con <b>@unit A1.1 Título</b> (nivel y número). Cada mazo empieza con un encabezado: <b>@deck</b> (tarjetas), <b>@exercises</b> (ejercicios con hueco), <b>@lesson</b> (lección), <b>@reading</b> (lectura con preguntas) o <b>@writing</b> (tarea de escritura). Las líneas vacías y las que empiezan con <b>//</b> se ignoran. Puedes mezclar varios bloques en un mismo texto.</p>
+          <pre id="formatExample">@unit A1.1 Saludos y presentaciones
+audience: general
+desc: Saludar y presentarte.
+
+@deck Arte: primeras palabras
 brush | pincel | I use a thin brush for the small details.
 watercolor | acuarela | I paint faces with watercolor. | watercolour
 
 @exercises Presente continuo
 I ___ painting a portrait now. => am | Con -ing necesitas am/is/are.
-She ___ writing code. => is / 's</pre>
-          <p class="small muted">Tarjeta: <b>inglés | español | frase que contenga la palabra | alternativas (opcional, separadas por ;)</b><br>Ejercicio: <b>frase con ___ => respuesta1 / respuesta2 | explicación (opcional)</b></p>
+She ___ writing code. => is / 's
+
+@lesson Presente continuo
+## Cómo se forma
+Sujeto + am / is / are + verbo con **-ing**.
+- I am painting
+- she is coding
+> I am painting a portrait. | Estoy pintando un retrato.
+! Nunca digas "I painting": falta el am.
+
+@reading Giulia en Florencia
+Giulia lives in Florence. She works in a small museum.
+She is learning to paint with watercolors.
+? Where does Giulia work? | In a school; In a small museum*; In a bank | Dice a small museum.
+? What is she learning? | To paint*; To dance | Dice learning to paint.
+
+@writing Lo que haces ahora
+Escribe 5 frases sobre lo que haces ahora con am / is / are + -ing.
+min: 25
+tip: Empieza con I am...</pre>
+          <ul class="small muted" style="margin:6px 0 10px;padding-left:20px">
+            <li><b>Unidad:</b> <b>@unit A1.1 Título</b> (niveles A1, A2, B1, B2, C1, C2). Opcional: <b>audience: general|personal</b> y <b>desc: texto</b>. Los mazos que van después pertenecen a esa unidad</li>
+            <li><b>Tarjeta:</b> inglés | español | frase que contenga la palabra | alternativas (opcional, con ;)</li>
+            <li><b>Ejercicio:</b> frase con ___ => respuesta1 / respuesta2 | explicación (opcional)</li>
+            <li><b>Lección:</b> <b>## título</b>, párrafos, <b>- lista</b>, <b>&gt; ejemplo | traducción</b>, <b>! nota</b>, y <b>**negrita**</b> dentro del texto</li>
+            <li><b>Lectura:</b> líneas de texto (cada línea es un párrafo) y preguntas <b>? pregunta | opción A; opción B*; opción C | explicación</b>. La correcta lleva <b>*</b></li>
+            <li><b>Escritura:</b> la consigna, y opcionalmente <b>min: 25</b> (palabras mínimas) y líneas <b>tip: consejo</b></li>
+          </ul>
           <button class="btn ghost sm" type="button" id="btnCopyFormat">Copiar ejemplo</button>
         </details>
         <label for="importText">Texto</label>
         <textarea id="importText" rows="10" placeholder="@deck Mi primer mazo&#10;palabra | traducción | frase de ejemplo con la palabra"></textarea>
         <div class="row" style="margin-top:12px">
           <input type="file" id="importFile" accept=".txt,.md,text/plain" aria-label="Subir archivo de texto">
-          <button class="btn ghost sm" type="button" id="btnExample">Cargar ejemplo (Semana 1)</button>
+          <button class="btn ghost sm" type="button" id="btnExample">Cargar ejemplo personal (Semana 1)</button>
+          <button class="btn ghost sm" type="button" id="btnExampleGen">Cargar ruta general (A1.1 y A1.2)</button>
         </div>
         <label class="check"><span class="switch"><input type="checkbox" id="publishNow" checked><i></i></span> Publicar para los usuarios al guardar</label>
+        <label for="importMode">Si una unidad ya existe</label>
+        <select id="importMode"><option value="add">Agregar los mazos nuevos a esa unidad</option><option value="replace">Reemplazar sus mazos (se pierde el progreso de esos mazos)</option></select>
         <div class="row" style="margin-top:16px">
           <button class="btn ghost" type="button" id="btnReview">Revisar</button>
           <button class="btn" type="button" id="btnSave">Guardar mazos</button>
@@ -99,6 +139,8 @@ She ___ writing code. => is / 's</pre>
             <div><label for="nuName">Usuario</label><input type="text" id="nuName" autocomplete="off" autocapitalize="off" spellcheck="false" required></div>
             <div><label for="nuPass">Contraseña (mínimo 8)</label><input type="password" id="nuPass" autocomplete="new-password" required minlength="8"></div>
           </div>
+          <label for="nuProfile">Plan</label>
+          <select id="nuProfile"><option value="general">General (ruta general)</option><option value="personal">Personalizado (ruta general + unidades personales)</option></select>
           <label class="check"><span class="switch"><input type="checkbox" id="nuAdmin"><i></i></span> Cuenta de administración (no recomendado para estudiar)</label>
           <div class="row" style="margin-top:14px"><button class="btn" type="submit">Crear usuario</button></div>
           <div class="msg" id="nuMsg" role="alert"></div>
@@ -183,54 +225,95 @@ function switchPanel(name) {
   document.querySelectorAll('#panel .panel').forEach(p => {
     const on = p.dataset.panel === name; p.hidden = !on; if (on) replay(p, 'enter');
   });
-  if (name === 'content') loadDecks().catch(handle);
+  if (name === 'content') loadContent().catch(handle);
   if (name === 'users') loadUsers().catch(handle);
 }
 function handle(err) { if (err.message !== 'auth') toast(err.message, 'bad'); }
 
 /* ---------- contenido ---------- */
-async function loadDecks() {
-  const r = await api('/api/admin/decks');
-  const el = $('decks');
-  if (!r.decks.length) { el.innerHTML = '<div class="empty">Aún no hay mazos. Ve a «Importar» para cargar el primero.</div>'; return; }
-  el.innerHTML = r.decks.map(d => {
-    const isCards = d.kind === 'cards';
-    return '<article class="deck glass" data-id="' + d.id + '" data-title="' + esc(d.title) + '">' +
-      '<div class="grow"><h3>' + esc(d.title) + '<span class="tag ' + (isCards ? '' : 'ex') + '">' + (isCards ? 'Tarjetas' : 'Ejercicios') + '</span>' +
-      '<span class="tag ' + (d.published ? '' : 'off') + ' pubtag">' + (d.published ? 'Publicado' : 'Borrador') + '</span></h3>' +
-      '<div class="muted small">' + d.total + (isCards ? ' tarjetas' : ' ejercicios') + ' · ' + d.learners + ' ' + (d.learners === 1 ? 'usuario' : 'usuarios') + ' · ' + d.attempts + ' respuestas · creado ' + esc(d.created) + '</div></div>' +
-      '<label class="row small" style="margin:0;font-weight:600">Publicado <span class="switch"><input type="checkbox" data-act="pub"' + (d.published ? ' checked' : '') + ' aria-label="Publicar ' + esc(d.title) + '"><i></i></span></label>' +
-      '<div class="row" style="width:100%">' +
-      '<button class="btn ghost sm" data-act="view" type="button">Ver contenido</button>' +
-      '<button class="btn ghost sm" data-act="edit" type="button">Editar como texto</button>' +
-      '<button class="btn danger sm" data-act="del" type="button">Eliminar</button></div>' +
-      '<div class="deck-extra" hidden></div></article>';
+const KIND_LABEL = {cards: 'Tarjetas', exercises: 'Ejercicios', lesson: 'Lección', reading: 'Lectura', writing: 'Escritura'};
+const KIND_TAG = {cards: '', exercises: 'ex', lesson: 'warm', reading: '', writing: 'warm'};
+const UNIT = {cards: ['tarjeta', 'tarjetas'], exercises: ['ejercicio', 'ejercicios'], lesson: ['lección', 'lecciones'], reading: ['pregunta', 'preguntas'], writing: ['tarea', 'tareas']};
+const fmtB = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+const uLabel = u => u.level + '.' + u.number;
+
+function itemsHtml(kind, items) {
+  if (kind === 'cards') return items.map(it => '<li><b>' + esc(it.en) + '</b> · ' + esc(it.es) + '<br><span class="muted">' + esc(it.ex) + '</span></li>').join('');
+  if (kind === 'exercises') return items.map(it => '<li>' + esc(it.q) + ' → <b>' + esc(it.a.join(' / ')) + '</b>' + (it.why ? '<br><span class="muted">' + esc(it.why) + '</span>' : '') + '</li>').join('');
+  if (kind === 'lesson') return ((items[0] && items[0].blocks) || []).map(b => {
+    if (b.t === 'h') return '<li><b>' + fmtB(b.text) + '</b></li>';
+    if (b.t === 'ul') return '<li>' + b.items.map(x => '• ' + fmtB(x)).join('<br>') + '</li>';
+    if (b.t === 'ex') return '<li><i>' + esc(b.en) + '</i>' + (b.es ? ' <span class="muted">· ' + esc(b.es) + '</span>' : '') + '</li>';
+    if (b.t === 'note') return '<li><span class="muted">Nota:</span> ' + fmtB(b.text) + '</li>';
+    return '<li>' + fmtB(b.text) + '</li>';
   }).join('');
+  if (kind === 'reading') return items.map(it => it.text
+    ? it.text.map(p => '<li><span class="muted">' + esc(p) + '</span></li>').join('')
+    : '<li><b>' + esc(it.q) + '</b><br>' + it.options.map((o, i) => (i === it.correct ? '<b>✓ ' + esc(o) + '</b>' : esc(o))).join(' · ') + (it.why ? '<br><span class="muted">' + esc(it.why) + '</span>' : '') + '</li>').join('');
+  const w = items[0] || {prompt: [], tips: []};
+  return w.prompt.map(p => '<li>' + fmtB(p) + '</li>').join('') + (w.min ? '<li><span class="muted">Mínimo: ' + w.min + ' palabras</span></li>' : '') + (w.tips || []).map(t => '<li><span class="muted">Consejo: ' + esc(t) + '</span></li>').join('');
+}
+
+let contentCache = {units: [], decks: []};
+function deckCardHtml(d, nested) {
+  const u = UNIT[d.kind];
+  const meta = d.total + ' ' + (d.total === 1 ? u[0] : u[1]) + ' · ' + d.learners + ' ' + (d.learners === 1 ? 'usuario' : 'usuarios') + ' · ' + d.attempts + ' registros';
+  const head = '<div class="grow"><h3>' + esc(d.title) + '<span class="tag ' + KIND_TAG[d.kind] + '">' + KIND_LABEL[d.kind] + '</span>' +
+    (nested ? '' : '<span class="tag ' + (d.published ? '' : 'off') + ' pubtag">' + (d.published ? 'Publicado' : 'Borrador') + '</span>') + '</h3>' +
+    '<div class="muted small">' + meta + (nested ? '' : ' · creado ' + esc(d.created)) + '</div></div>';
+  const pub = nested ? '' : '<label class="row small" style="margin:0;font-weight:600">Publicado <span class="switch"><input type="checkbox" data-act="pub"' + (d.published ? ' checked' : '') + ' aria-label="Publicar ' + esc(d.title) + '"><i></i></span></label>';
+  return '<article class="' + (nested ? 'deck glass mini' : 'deck glass') + '" data-id="' + d.id + '" data-title="' + esc(d.title) + '" data-deck="1">' + head + pub +
+    '<div class="row" style="width:100%">' +
+    '<button class="btn ghost sm" data-act="view" type="button">Ver contenido</button>' +
+    '<button class="btn ghost sm" data-act="edit" type="button">Editar como texto</button>' +
+    '<button class="btn danger sm" data-act="del" type="button">Eliminar</button></div>' +
+    '<div class="deck-extra" hidden></div></article>';
+}
+async function loadContent() {
+  const [ur, dr] = await Promise.all([api('/api/admin/units'), api('/api/admin/decks')]);
+  contentCache = {units: ur.units, decks: dr.decks};
+  const uEl = $('units');
+  if (!ur.units.length) uEl.innerHTML = '<div class="empty">Aún no hay unidades. En «Importar» puedes cargar la ruta general o tu ejemplo personal.</div>';
+  else uEl.innerHTML = ur.units.map(u =>
+    '<article class="deck glass" data-unit="' + u.id + '" data-title="' + esc(uLabel(u) + ' · ' + u.title) + '">' +
+    '<div class="grow"><h3>' + esc(uLabel(u)) + ' · ' + esc(u.title) + '<span class="tag ' + (u.audience === 'personal' ? 'warm' : '') + '">' + (u.audience === 'personal' ? 'Personal' : 'General') + '</span>' +
+    '<span class="tag ' + (u.published ? '' : 'off') + ' pubtag">' + (u.published ? 'Publicada' : 'Borrador') + '</span></h3>' +
+    '<div class="muted small">' + (u.description ? esc(u.description) + ' · ' : '') + u.decks + (u.decks === 1 ? ' mazo' : ' mazos') + '</div></div>' +
+    '<label class="row small" style="margin:0;font-weight:600">Publicada <span class="switch"><input type="checkbox" data-uact="pub"' + (u.published ? ' checked' : '') + ' aria-label="Publicar unidad ' + esc(uLabel(u)) + '"><i></i></span></label>' +
+    '<div class="row" style="width:100%"><label class="row small muted" style="margin:0;font-weight:400">Audiencia <select data-uact="aud" aria-label="Audiencia"><option value="general"' + (u.audience === 'general' ? ' selected' : '') + '>General</option><option value="personal"' + (u.audience === 'personal' ? ' selected' : '') + '>Personal</option></select></label>' +
+    '<button class="btn ghost sm" data-uact="view" type="button">Ver mazos</button>' +
+    '<button class="btn ghost sm" data-uact="edit" type="button">Editar unidad como texto</button>' +
+    '<button class="btn danger sm" data-uact="del" type="button">Eliminar</button></div>' +
+    '<div class="deck-extra" hidden></div></article>').join('');
+  stagger(uEl);
+  const loose = dr.decks.filter(d => !d.unit_id);
+  const el = $('decks');
+  el.innerHTML = loose.length ? loose.map(d => deckCardHtml(d, false)).join('') : '<div class="empty">No hay mazos sueltos.</div>';
   stagger(el);
+}
+
+async function deckAction(b, card) {
+  const id = Number(card.dataset.id), title = card.dataset.title;
+  if (b.dataset.act === 'view') {
+    const extra = card.querySelector('.deck-extra');
+    if (!extra.hidden) { extra.hidden = true; b.textContent = 'Ver contenido'; return; }
+    const r = await api('/api/admin/decks/' + id);
+    extra.innerHTML = '<ul class="item-list">' + itemsHtml(r.deck.kind, r.items) + '</ul>';
+    extra.hidden = false; b.textContent = 'Ocultar contenido';
+  }
+  if (b.dataset.act === 'edit') {
+    const r = await api('/api/admin/decks/' + id);
+    $('importText').value = r.text; $('importResult').innerHTML = '<div class="prev">Copia de «' + esc(title) + '» cargada. Edítala y guárdala: se creará un mazo nuevo (sin unidad). Si quieres reemplazar el original, elimínalo después (se perdería su progreso).</div>';
+    tabs.select('import');
+  }
+  if (b.dataset.act === 'del') {
+    if (!(await confirmDialog('¿Eliminar «' + title + '»?', 'Se borran sus tarjetas y el progreso de los usuarios en este mazo. Los resultados ya registrados siguen apareciendo en los informes.', 'Eliminar mazo', true))) return;
+    await api('/api/admin/decks/' + id, {method: 'DELETE'}); toast('Mazo eliminado.', 'good'); await loadContent();
+  }
 }
 $('decks').addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
-  const card = b.closest('.deck'); const id = Number(card.dataset.id); const title = card.dataset.title;
-  try {
-    if (b.dataset.act === 'view') {
-      const extra = card.querySelector('.deck-extra');
-      if (!extra.hidden) { extra.hidden = true; b.textContent = 'Ver contenido'; return; }
-      const r = await api('/api/admin/decks/' + id);
-      extra.innerHTML = '<ul class="item-list">' + r.items.map(it => r.deck.kind === 'cards'
-        ? '<li><b>' + esc(it.en) + '</b> · ' + esc(it.es) + '<br><span class="muted">' + esc(it.ex) + '</span></li>'
-        : '<li>' + esc(it.q) + ' → <b>' + esc(it.a.join(' / ')) + '</b>' + (it.why ? '<br><span class="muted">' + esc(it.why) + '</span>' : '') + '</li>').join('') + '</ul>';
-      extra.hidden = false; b.textContent = 'Ocultar contenido';
-    }
-    if (b.dataset.act === 'edit') {
-      const r = await api('/api/admin/decks/' + id);
-      $('importText').value = r.text; $('importResult').innerHTML = '<div class="prev">Copia de «' + esc(title) + '» cargada. Edítala y guárdala: se creará un mazo nuevo. Si quieres reemplazar el original, elimínalo después (se perdería su progreso).</div>';
-      tabs.select('import');
-    }
-    if (b.dataset.act === 'del') {
-      if (!(await confirmDialog('¿Eliminar «' + title + '»?', 'Se borran sus tarjetas y el progreso de los usuarios en este mazo. Los resultados ya registrados siguen apareciendo en los informes.', 'Eliminar mazo', true))) return;
-      await api('/api/admin/decks/' + id, {method: 'DELETE'}); toast('Mazo eliminado.', 'good'); await loadDecks();
-    }
-  } catch (err) { handle(err); }
+  try { await deckAction(b, b.closest('[data-deck]')); } catch (err) { handle(err); }
 });
 $('decks').addEventListener('change', async e => {
   const b = e.target.closest('[data-act="pub"]'); if (!b) return;
@@ -242,10 +325,58 @@ $('decks').addEventListener('change', async e => {
   } catch (err) { b.checked = !b.checked; handle(err); }
 });
 
+/* acciones de las unidades (y de los mazos dentro de ellas) */
+$('units').addEventListener('click', async e => {
+  const deckBtn = e.target.closest('[data-act]');
+  if (deckBtn && deckBtn.closest('.mini')) { try { await deckAction(deckBtn, deckBtn.closest('.mini')); } catch (err) { handle(err); } return; }
+  const b = e.target.closest('[data-uact]'); if (!b || b.tagName === 'SELECT' || b.type === 'checkbox') return;
+  const card = b.closest('[data-unit]'); const id = Number(card.dataset.unit); const title = card.dataset.title;
+  try {
+    if (b.dataset.uact === 'view') {
+      const extra = card.querySelector(':scope > .deck-extra');
+      if (!extra.hidden) { extra.hidden = true; b.textContent = 'Ver mazos'; return; }
+      const decks = contentCache.decks.filter(d => d.unit_id === id);
+      extra.innerHTML = decks.length ? '<div class="stack">' + decks.map(d => deckCardHtml(d, true)).join('') + '</div>' : '<div class="empty">Esta unidad no tiene mazos.</div>';
+      extra.hidden = false; b.textContent = 'Ocultar mazos';
+    }
+    if (b.dataset.uact === 'edit') {
+      const r = await api('/api/admin/units/' + id);
+      $('importText').value = r.text;
+      $('importMode').value = 'replace';
+      $('importResult').innerHTML = '<div class="prev">Unidad «' + esc(title) + '» cargada como texto. Edítala y pulsa <b>Revisar</b> y <b>Guardar</b>: con «Reemplazar» sus mazos se sustituyen por los del texto (se pierde el progreso de esos mazos).</div>';
+      tabs.select('import');
+    }
+    if (b.dataset.uact === 'del') {
+      if (!(await confirmDialog('¿Eliminar la unidad «' + title + '»?', 'Se borran la unidad y TODOS sus mazos, y el progreso de los usuarios en ellos. Los resultados ya registrados siguen apareciendo en los informes.', 'Eliminar unidad', true))) return;
+      await api('/api/admin/units/' + id, {method: 'DELETE'}); toast('Unidad eliminada.', 'good'); await loadContent();
+    }
+  } catch (err) { handle(err); }
+});
+$('units').addEventListener('change', async e => {
+  const b = e.target.closest('[data-uact]'); if (!b) return;
+  const card = b.closest('[data-unit]'); const id = Number(card.dataset.unit);
+  try {
+    if (b.dataset.uact === 'pub') {
+      await api('/api/admin/units/' + id, {method: 'PATCH', body: {published: b.checked}});
+      const tag = card.querySelector(':scope > .grow .pubtag'); tag.textContent = b.checked ? 'Publicada' : 'Borrador'; tag.classList.toggle('off', !b.checked);
+      toast(b.checked ? 'Unidad publicada: ya la ven los usuarios con acceso.' : 'Unidad oculta para los usuarios.', 'good');
+    }
+    if (b.dataset.uact === 'aud') {
+      await api('/api/admin/units/' + id, {method: 'PATCH', body: {audience: b.value}});
+      toast(b.value === 'personal' ? 'Ahora es personal: solo la ven cuentas con plan personalizado.' : 'Ahora es general: la ven todos.', 'good');
+      await loadContent();
+    }
+  } catch (err) { handle(err); if (b.type === 'checkbox') b.checked = !b.checked; else await loadContent().catch(() => {}); }
+});
+
 /* ---------- importar ---------- */
 $('btnCopyFormat').onclick = async () => { if (await copyText($('formatExample').textContent)) toast('Ejemplo copiado.', 'good'); };
+$('btnExampleGen').onclick = async () => {
+  try { const r = await fetch('/curriculo-A1-general.txt'); if (!r.ok) throw new Error(); $('importText').value = await r.text(); toast('Ruta general cargada (2 unidades). Pulsa «Revisar».', 'good'); }
+  catch (e) { toast('No pude cargar el ejemplo.', 'bad'); }
+};
 $('btnExample').onclick = async () => {
-  try { const r = await fetch('/ejemplo-semana1.txt'); if (!r.ok) throw new Error(); $('importText').value = await r.text(); toast('Ejemplo cargado. Pulsa «Revisar».', 'good'); }
+  try { const r = await fetch('/ejemplo-semana1.txt'); if (!r.ok) throw new Error(); $('importText').value = await r.text(); toast('Ejemplo personal cargado (1 unidad, 11 mazos). Pulsa «Revisar».', 'good'); }
   catch (e) { toast('No pude cargar el ejemplo.', 'bad'); }
 };
 $('importFile').addEventListener('change', async e => {
@@ -256,10 +387,21 @@ $('importFile').addEventListener('change', async e => {
 async function doImport(dry) {
   const out = $('importResult'); out.innerHTML = '';
   try {
-    const r = await api('/api/admin/import', {method: 'POST', body: {text: $('importText').value, published: $('publishNow').checked, dryRun: dry}});
-    const list = (dry ? r.preview : r.created).map(d => '<li>' + esc(d.title) + ': ' + d.count + (d.kind === 'cards' ? ' tarjetas' : ' ejercicios') + '</li>').join('');
-    out.innerHTML = '<div class="prev"><b>' + (dry ? 'Todo en orden. Se crearían:' : (r.published ? 'Mazos guardados y publicados:' : 'Mazos guardados como borrador:')) + '</b><ul style="margin:6px 0 0;padding-left:20px">' + list + '</ul></div>';
-    if (!dry) { $('importText').value = ''; $('importFile').value = ''; toast('Mazos guardados.', 'good'); }
+    const r = await api('/api/admin/import', {method: 'POST', body: {text: $('importText').value, published: $('publishNow').checked, mode: $('importMode').value, dryRun: dry}});
+    const decks = (dry ? r.preview : r.created);
+    let html = '<div class="prev"><b>' + (dry ? 'Todo en orden. Se crearían:' : (r.published ? 'Guardado y publicado:' : 'Guardado como borrador:')) + '</b>';
+    if (r.units && r.units.length) {
+      html += '<ul style="margin:6px 0 0;padding-left:20px">' + r.units.map(u => {
+        const n = decks.filter(d => d.unit === u.level + '.' + u.number).length;
+        return '<li><b>Unidad ' + esc(u.level + '.' + u.number) + ' · ' + esc(u.title) + '</b> (' + (u.audience === 'personal' ? 'personal' : 'general') + ') · ' + n + (n === 1 ? ' mazo' : ' mazos') +
+          (u.exists ? ' · <span class="muted">ya existe: ' + (r.mode === 'replace' ? 'se reemplazan sus mazos' : 'se agregan los mazos nuevos') + '</span>' : '') + '</li>';
+      }).join('') + '</ul>';
+    }
+    const loose = decks.filter(d => !d.unit);
+    if (loose.length) html += '<div style="margin-top:6px">Mazos sin unidad:</div><ul style="margin:2px 0 0;padding-left:20px">' + loose.map(d => '<li>' + esc(d.title) + ': ' + d.count + ' ' + (d.count === 1 ? UNIT[d.kind][0] : UNIT[d.kind][1]) + '</li>').join('') + '</ul>';
+    if (r.units && r.units.length) html += '<div class="small muted" style="margin-top:8px">' + decks.length + ' mazos en total.' + (dry ? '' : (r.published ? '' : ' Publica cada unidad en la pestaña Contenido cuando la hayas revisado.')) + '</div>';
+    out.innerHTML = html + '</div>';
+    if (!dry) { $('importText').value = ''; $('importFile').value = ''; toast('Contenido guardado.', 'good'); }
   } catch (err) {
     if (err.message === 'auth') return;
     const errs = err.data && err.data.errors;
@@ -278,17 +420,26 @@ async function loadUsers() {
     const pct = u.week_total ? Math.round(u.week_ok * 100 / u.week_total) + ' %' : '–';
     return '<article class="user-row glass" data-id="' + u.id + '" data-name="' + esc(u.username) + '">' +
       '<div class="row" style="justify-content:space-between"><div><span class="name">' + esc(u.username) + '</span>' +
-      (u.is_admin ? '<span class="tag">Administración</span>' : '') + (u.id === r.me ? '<span class="tag off">tú</span>' : '') +
+      (u.is_admin ? '<span class="tag">Administración</span>' : '') + (u.id === r.me ? '<span class="tag off">tú</span>' : '') + (!u.is_admin && u.profile === 'personal' ? '<span class="tag warm">Plan personalizado</span>' : '') +
       '<div class="chips"><span class="chip">Creado ' + esc(u.created) + '</span>' +
       '<span class="chip">' + (u.last_activity ? 'Última actividad ' + esc(u.last_activity) : 'Sin actividad') + '</span>' +
       '<span class="chip">Semana: ' + u.week_ok + '/' + u.week_total + ' (' + pct + ')</span></div></div>' +
-      '<div class="row">' +
+      '<div class="row">' + (u.is_admin ? '' : '<label class="row small muted" style="margin:0;font-weight:400">Plan <select data-act="plan" aria-label="Plan de ' + esc(u.username) + '"><option value="general"' + (u.profile === 'general' ? ' selected' : '') + '>General</option><option value="personal"' + (u.profile === 'personal' ? ' selected' : '') + '>Personalizado</option></select></label>') +
       '<a class="btn ghost sm" download href="/api/admin/users/' + u.id + '/report?period=week&date=' + today() + '">Informe semanal</a>' +
       '<button class="btn ghost sm" data-act="reset" type="button">Restablecer contraseña</button>' +
       (u.id === r.me ? '' : '<button class="btn danger sm" data-act="deluser" type="button">Eliminar</button>') + '</div></div></article>';
   }).join('');
   stagger(el);
 }
+$('users').addEventListener('change', async e => {
+  const s = e.target.closest('[data-act="plan"]'); if (!s) return;
+  const row = s.closest('.user-row');
+  try {
+    await api('/api/admin/users/' + row.dataset.id, {method: 'PATCH', body: {profile: s.value}});
+    toast(s.value === 'personal' ? row.dataset.name + ' ahora ve también el contenido personal.' : row.dataset.name + ' ahora solo ve la ruta general.', 'good');
+    await loadUsers();
+  } catch (err) { handle(err); await loadUsers().catch(() => {}); }
+});
 $('users').addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const row = b.closest('.user-row'); const id = Number(row.dataset.id); const name = row.dataset.name;
@@ -310,9 +461,9 @@ $('users').addEventListener('click', async e => {
 $('newUserForm').addEventListener('submit', async e => {
   e.preventDefault(); const m = $('nuMsg'); m.className = 'msg'; m.textContent = '';
   try {
-    await api('/api/admin/users', {method: 'POST', body: {username: $('nuName').value, password: $('nuPass').value, is_admin: $('nuAdmin').checked}});
+    await api('/api/admin/users', {method: 'POST', body: {username: $('nuName').value, password: $('nuPass').value, is_admin: $('nuAdmin').checked, profile: $('nuProfile').value}});
     toast('Usuario «' + $('nuName').value.trim() + '» creado.', 'good');
-    $('nuName').value = ''; $('nuPass').value = ''; $('nuAdmin').checked = false; await loadUsers();
+    $('nuName').value = ''; $('nuPass').value = ''; $('nuAdmin').checked = false; $('nuProfile').value = 'general'; await loadUsers();
   } catch (err) { if (err.message !== 'auth') { m.className = 'msg bad'; m.textContent = err.message; replay($('newUserForm'), 'shake'); } }
 });
 

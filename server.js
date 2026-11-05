@@ -4,7 +4,7 @@ const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
 const { Pool } = require('pg');
-const { parseDeckText, deckToText, normalize } = require('./parser');
+const { parseDeckText, deckToText, unitToText, deckCount, normalize, LEVELS } = require('./parser');
 
 const PORT = Number(process.env.PORT) || 3000;
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -13,7 +13,7 @@ const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || '').trim();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const REGISTRATION_CLOSED = (process.env.REGISTRATION || '').trim().toLowerCase() === 'closed';
 const INTERVALS = [1, 3, 7, 14, 30]; // días hasta el siguiente repaso, por caja
-const MAX_DECKS = 300;
+const MAX_DECKS = 1500;
 
 if (!process.env.DATABASE_URL) {
   console.error('Falta la variable de entorno DATABASE_URL.');
@@ -46,7 +46,7 @@ create table if not exists decks (
   id serial primary key,
   owner_id int not null references users(id) on delete cascade,
   title text not null,
-  kind text not null check (kind in ('cards','exercises')),
+  kind text not null check (kind in ('cards','exercises','lesson','reading','writing')),
   published boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -81,6 +81,31 @@ create table if not exists attempts (
   created_at timestamptz not null default now()
 );
 create index if not exists attempts_user_day_idx on attempts(user_id, day);
+create table if not exists activities (
+  id bigserial primary key,
+  user_id int not null references users(id) on delete cascade,
+  deck_id int references decks(id) on delete set null,
+  deck_title text not null,
+  kind text not null check (kind in ('lesson','reading','writing')),
+  day date not null,
+  text text,
+  score_ok int,
+  score_total int,
+  words int,
+  created_at timestamptz not null default now()
+);
+create index if not exists activities_user_day_idx on activities(user_id, day);
+create table if not exists units (
+  id serial primary key,
+  level text not null check (level in ('A1','A2','B1','B2','C1','C2')),
+  number int not null,
+  title text not null,
+  description text not null default '',
+  audience text not null default 'general' check (audience in ('general','personal')),
+  published boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (level, number, audience)
+);
 create table if not exists notes (
   user_id int not null references users(id) on delete cascade,
   day date not null,
@@ -93,6 +118,15 @@ create table if not exists notes (
 // Es segura de ejecutar siempre: si ya está migrada, no hace nada.
 const MIGRATE = `
 alter table decks add column if not exists published boolean not null default false;
+alter table decks add column if not exists unit_id int references units(id) on delete cascade;
+create index if not exists decks_unit_idx on decks(unit_id);
+alter table users add column if not exists profile text not null default 'general';
+alter table users add column if not exists level text;
+alter table activities add column if not exists target text;
+alter table activities drop constraint if exists activities_kind_check;
+alter table activities add constraint activities_kind_check check (kind in ('lesson','reading','writing','speaking'));
+alter table decks drop constraint if exists decks_kind_check;
+alter table decks add constraint decks_kind_check check (kind in ('cards','exercises','lesson','reading','writing'));
 do $$
 begin
   if exists (select 1 from information_schema.columns
@@ -192,11 +226,12 @@ async function auth(req, res, next) {
     const token = parseCookies(req.headers.cookie).sid;
     if (!token) return err(res, 401, 'No has iniciado sesión.');
     const r = await q(
-      'select u.id, u.username, u.is_admin from sessions s join users u on u.id = s.user_id where s.token_hash = $1 and s.expires_at > now()',
+      'select u.id, u.username, u.is_admin, u.profile, u.level from sessions s join users u on u.id = s.user_id where s.token_hash = $1 and s.expires_at > now()',
       [sha(token)]
     );
     if (!r.rows[0]) return err(res, 401, 'Tu sesión expiró. Inicia sesión de nuevo.');
     req.user = r.rows[0];
+    req.user.personal = req.user.profile === 'personal';
     next();
   } catch (e) { next(e); }
 }
@@ -224,7 +259,14 @@ app.use((req, res, next) => {
 });
 
 app.get(['/admin', '/admin/'], (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0 }));
+app.get('/favicon.ico', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icons', 'favicon-32.png')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: 0,
+  setHeaders(res, filePath) {
+    // el servicio y el manifiesto siempre deben revisarse, para que las actualizaciones lleguen
+    if (/(sw\.js|manifest\.webmanifest)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 /* ---------- cuentas ---------- */
@@ -297,44 +339,150 @@ app.post('/api/password', auth, limiter(10, 15 * 60 * 1000), wrap(async (req, re
 }));
 
 /* ---------- mazos (lo que ve el usuario) ---------- */
+// Regla de visibilidad: el administrador ve todo. Un usuario ve un mazo si el mazo está publicado y, cuando pertenece
+// a una unidad, la unidad está publicada y es general (o el usuario tiene el plan personalizado).
+const VIS = (A, P) => `(${A}::boolean or (d.published = true and (d.unit_id is null or (u.published = true and (u.audience = 'general' or ${P}::boolean)))))`;
+// "Unidades" de un mazo: tarjetas, ejercicios o preguntas (una lección o una tarea de escritura cuentan como 1).
+const UNITS_SQL = `(select count(*)::int from items i where i.deck_id = d.id and (d.kind <> 'reading' or (i.data->'q') is not null))`;
+const levelIdx = l => LEVELS.indexOf(l);
+const sortUnits = (a, b) => (levelIdx(a.level) - levelIdx(b.level)) || (a.number - b.number) || (a.id - b.id);
+
 async function getAccessibleDeck(deckId, user) {
-  const r = await q('select id, title, kind, published from decks where id = $1 and (published = true or $2::boolean)', [deckId, user.is_admin]);
+  const r = await q(
+    `select d.id, d.title, d.kind, d.published, d.unit_id from decks d left join units u on u.id = d.unit_id
+      where d.id = $1 and ${VIS('$2', '$3')}`, [deckId, user.is_admin, Boolean(user.personal)]);
   return r.rows[0] || null;
 }
 
 app.get('/api/decks', auth, wrap(async (req, res) => {
   const today = isDate(req.query.today) ? req.query.today : new Date().toISOString().slice(0, 10);
   const decks = (await q(
-    `select d.id, d.title, d.kind,
-            (select count(*)::int from items i where i.deck_id = d.id) as total
-       from decks d
-      where d.published = true or $1::boolean
-      order by d.created_at, d.id`, [req.user.is_admin])).rows;
+    `select d.id, d.title, d.kind, d.unit_id, ${UNITS_SQL} as total
+       from decks d left join units u on u.id = d.unit_id
+      where ${VIS('$1', '$2')}
+      order by d.created_at, d.id`, [req.user.is_admin, req.user.personal])).rows;
   const counts = (await q(
     `select i.deck_id,
             count(*) filter (where p.item_id is null)::int as fresh,
             count(*) filter (where p.item_id is not null and p.due <= $2::date)::int as due
        from items i left join progress p on p.item_id = i.id and p.user_id = $1
       group by i.deck_id`, [req.user.id, today])).rows;
+  const acts = (await q(
+    `select deck_id, count(*)::int as times, to_char(max(day), 'YYYY-MM-DD') as last_day,
+            bool_or(day = $2::date) as done_today,
+            (array_agg(score_ok order by created_at desc))[1] as score_ok,
+            (array_agg(score_total order by created_at desc))[1] as score_total
+       from activities where user_id = $1 and deck_id is not null and kind <> 'speaking' group by deck_id`, [req.user.id, today])).rows;
   const byDeck = new Map(counts.map(c => [c.deck_id, c]));
+  const actBy = new Map(acts.map(a => [a.deck_id, a]));
   res.json({
     ok: true,
-    decks: decks.map(d => Object.assign({}, d, {
-      fresh: (byDeck.get(d.id) || {}).fresh || 0,
-      due: (byDeck.get(d.id) || {}).due || 0
-    }))
+    decks: decks.map(d => {
+      const c = byDeck.get(d.id) || {};
+      const a = actBy.get(d.id) || {};
+      return Object.assign({}, d, {
+        fresh: c.fresh || 0, due: c.due || 0,
+        times: a.times || 0, last_day: a.last_day || null, done_today: Boolean(a.done_today),
+        score_ok: a.score_ok == null ? null : a.score_ok, score_total: a.score_total == null ? null : a.score_total
+      });
+    })
   });
+}));
+
+// Ruta de aprendizaje: unidades por nivel, con el avance de este usuario y la siguiente unidad recomendada.
+app.get('/api/path', auth, wrap(async (req, res) => {
+  const uid = req.user.id, admin = req.user.is_admin, personal = Boolean(req.user.personal);
+  const units = (await q(
+    `select u.id, u.level, u.number, u.title, u.description, u.audience, u.published
+       from units u where $1::boolean or (u.published = true and (u.audience = 'general' or $2::boolean))`, [admin, personal])).rows;
+  const decks = (await q(
+    `select d.id, d.kind, d.unit_id,
+            (select count(*)::int from items i where i.deck_id = d.id and (d.kind <> 'reading' or (i.data->'q') is not null)) as total,
+            (select count(*)::int from progress p join items i on i.id = p.item_id where p.user_id = $1 and i.deck_id = d.id) as started,
+            (select count(*)::int from attempts a where a.user_id = $1 and a.deck_id = d.id) as attempts,
+            (select count(*)::int from activities x where x.user_id = $1 and x.deck_id = d.id and x.kind <> 'speaking') as acts
+       from decks d join units u on u.id = d.unit_id
+      where ${VIS('$2', '$3')}`, [uid, admin, personal])).rows;
+  const isDone = d => d.kind === 'cards' ? (d.total > 0 && d.started >= d.total) : d.kind === 'exercises' ? d.attempts > 0 : d.acts > 0;
+  const byUnit = new Map();
+  decks.forEach(d => { const e = byUnit.get(d.unit_id) || { total: 0, done: 0 }; e.total++; if (isDone(d)) e.done++; byUnit.set(d.unit_id, e); });
+  const full = units.map(u => Object.assign({}, u, byUnit.get(u.id) || { total: 0, done: 0 })).filter(u => u.total > 0 || admin).sort(sortUnits);
+  const general = full.filter(u => u.audience === 'general');
+  const personalUnits = full.filter(u => u.audience === 'personal');
+  const levels = LEVELS.map(l => ({ level: l, units: general.filter(u => u.level === l) })).filter(l => l.units.length);
+
+  const incomplete = u => u.total > 0 && u.done < u.total;
+  let rec = null;
+  if (personal) rec = personalUnits.find(incomplete) || null;
+  if (!rec) {
+    const pref = req.user.level;
+    rec = (pref && general.find(u => u.level === pref && incomplete(u))) || general.find(incomplete) || null;
+  }
+  res.json({ ok: true, level: req.user.level || null, profile: req.user.profile, levels, personal: personalUnits, recommendedUnitId: rec ? rec.id : null });
+}));
+
+app.put('/api/level', auth, wrap(async (req, res) => {
+  const level = req.body.level == null || req.body.level === '' ? null : String(req.body.level);
+  if (level !== null && LEVELS.indexOf(level) === -1) return err(res, 400, 'Nivel no válido.');
+  await q('update users set level = $1 where id = $2', [level, req.user.id]);
+  res.json({ ok: true, level });
 }));
 
 /* ---------- administración ---------- */
 app.get('/api/admin/decks', auth, requireAdmin, wrap(async (req, res) => {
   const decks = (await q(
-    `select d.id, d.title, d.kind, d.published, to_char(d.created_at, 'YYYY-MM-DD') as created,
-            (select count(*)::int from items i where i.deck_id = d.id) as total,
-            (select count(*)::int from attempts a where a.deck_id = d.id) as attempts,
-            (select count(distinct a.user_id)::int from attempts a where a.deck_id = d.id) as learners
+    `select d.id, d.title, d.kind, d.published, d.unit_id, to_char(d.created_at, 'YYYY-MM-DD') as created,
+            ${UNITS_SQL} as total,
+            (select count(*)::int from attempts a where a.deck_id = d.id) + (select count(*)::int from activities x where x.deck_id = d.id) as attempts,
+            (select count(*)::int from (select a.user_id from attempts a where a.deck_id = d.id
+                                        union select x.user_id from activities x where x.deck_id = d.id) u2) as learners
        from decks d order by d.created_at, d.id`)).rows;
   res.json({ ok: true, decks });
+}));
+
+app.get('/api/admin/units', auth, requireAdmin, wrap(async (req, res) => {
+  const units = (await q(
+    `select u.id, u.level, u.number, u.title, u.description, u.audience, u.published,
+            (select count(*)::int from decks d where d.unit_id = u.id) as decks
+       from units u`)).rows.sort(sortUnits);
+  res.json({ ok: true, units });
+}));
+
+app.get('/api/admin/units/:id', auth, requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const u = id ? (await q('select id, level, number, title, description, audience from units where id = $1', [id])).rows[0] : null;
+  if (!u) return err(res, 404, 'Unidad no encontrada.');
+  const decks = (await q('select id, title, kind from decks where unit_id = $1 order by created_at, id', [id])).rows;
+  for (const d of decks) d.items = (await q('select data from items where deck_id = $1 order by position', [d.id])).rows.map(r => r.data);
+  res.json({ ok: true, unit: u, text: unitToText(u, decks) });
+}));
+
+app.patch('/api/admin/units/:id', auth, requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) return err(res, 400, 'Unidad no válida.');
+  const sets = [], vals = [];
+  const add = (col, v) => { vals.push(v); sets.push(col + ' = $' + vals.length); };
+  if (typeof req.body.published === 'boolean') add('published', req.body.published);
+  if (req.body.audience === 'general' || req.body.audience === 'personal') add('audience', req.body.audience);
+  if (typeof req.body.title === 'string' && req.body.title.trim()) add('title', req.body.title.trim().slice(0, 100));
+  if (typeof req.body.description === 'string') add('description', req.body.description.trim().slice(0, 300));
+  if (!sets.length) return err(res, 400, 'Nada que cambiar.');
+  vals.push(id);
+  try {
+    const r = await q('update units set ' + sets.join(', ') + ' where id = $' + vals.length + ' returning id, published, audience', vals);
+    if (!r.rows[0]) return err(res, 404, 'Unidad no encontrada.');
+    res.json({ ok: true, unit: r.rows[0] });
+  } catch (e) {
+    if (e.code === '23505') return err(res, 409, 'Ya existe una unidad con ese nivel, número y audiencia.');
+    throw e;
+  }
+}));
+
+app.delete('/api/admin/units/:id', auth, requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const r = id ? await q('delete from units where id = $1 returning id', [id]) : { rows: [] };
+  if (!r.rows[0]) return err(res, 404, 'Unidad no encontrada.');
+  res.json({ ok: true });
 }));
 
 app.get('/api/admin/decks/:id', auth, requireAdmin, wrap(async (req, res) => {
@@ -363,14 +511,23 @@ app.delete('/api/admin/decks/:id', auth, requireAdmin, wrap(async (req, res) => 
 app.post('/api/admin/import', auth, requireAdmin, wrap(async (req, res) => {
   const text = req.body.text;
   if (typeof text !== 'string' || !text.trim()) return err(res, 400, 'Pega algún texto o sube un archivo.');
-  if (text.length > 250000) return err(res, 400, 'El texto es demasiado grande.');
+  if (text.length > 400000) return err(res, 400, 'El texto es demasiado grande.');
 
   const parsed = parseDeckText(text);
   if (parsed.errors.length) return res.status(400).json({ ok: false, error: 'Hay líneas que corregir.', errors: parsed.errors.slice(0, 50) });
-  if (!parsed.decks.length) return err(res, 400, 'No encontré ningún @deck ni @exercises en el texto.');
+  if (!parsed.decks.length) return err(res, 400, 'No encontré ningún mazo (@deck, @exercises, @lesson, @reading o @writing) en el texto.');
 
-  const summary = parsed.decks.map(d => ({ title: d.title, kind: d.kind, count: d.items.length }));
-  if (req.body.dryRun) return res.json({ ok: true, preview: summary });
+  const mode = req.body.mode === 'replace' ? 'replace' : 'add';
+  const label = u => u.level + '.' + u.number;
+  const summary = parsed.decks.map(d => ({ title: d.title, kind: d.kind, count: deckCount(d), unit: d.unit == null ? null : label(parsed.units[d.unit]) }));
+
+  const existing = [];
+  for (const u of parsed.units) {
+    const r = await q('select id from units where level = $1 and number = $2 and audience = $3', [u.level, u.number, u.audience || 'general']);
+    existing.push(r.rows[0] ? r.rows[0].id : null);
+  }
+  const unitsSummary = parsed.units.map((u, i) => ({ level: u.level, number: u.number, title: u.title, audience: u.audience || 'general', exists: existing[i] !== null }));
+  if (req.body.dryRun) return res.json({ ok: true, preview: summary, units: unitsSummary, mode });
 
   const total = (await q('select count(*)::int as c from decks')).rows[0].c;
   if (total + parsed.decks.length > MAX_DECKS) return err(res, 400, 'Llegaste al máximo de ' + MAX_DECKS + ' mazos. Elimina alguno.');
@@ -379,8 +536,25 @@ app.post('/api/admin/import', auth, requireAdmin, wrap(async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('begin');
+    const unitIds = [];
+    for (let i = 0; i < parsed.units.length; i++) {
+      const u = parsed.units[i];
+      let id = existing[i];
+      if (id !== null) {
+        if (mode === 'replace') await client.query('delete from decks where unit_id = $1', [id]);
+        await client.query('update units set title = $1, description = case when $2 = \'\' then description else $2 end where id = $3', [u.title, u.description, id]);
+      } else {
+        const ur = await client.query(
+          'insert into units(level, number, title, description, audience, published) values ($1,$2,$3,$4,$5,$6) returning id',
+          [u.level, u.number, u.title, u.description, u.audience || 'general', published]);
+        id = ur.rows[0].id;
+      }
+      unitIds.push(id);
+    }
     for (const d of parsed.decks) {
-      const dr = await client.query('insert into decks(owner_id, title, kind, published) values ($1,$2,$3,$4) returning id', [req.user.id, d.title, d.kind, published]);
+      const unitId = d.unit == null ? null : unitIds[d.unit];
+      const dr = await client.query('insert into decks(owner_id, title, kind, published, unit_id) values ($1,$2,$3,$4,$5) returning id',
+        [req.user.id, d.title, d.kind, unitId === null ? published : true, unitId]);
       await client.query(
         `insert into items(deck_id, position, data)
          select $1, ord - 1, elem from jsonb_array_elements($2::jsonb) with ordinality as t(elem, ord)`,
@@ -394,18 +568,27 @@ app.post('/api/admin/import', auth, requireAdmin, wrap(async (req, res) => {
   } finally {
     client.release();
   }
-  res.json({ ok: true, created: summary, published });
+  res.json({ ok: true, created: summary, units: unitsSummary, published, mode });
 }));
 
 app.get('/api/admin/users', auth, requireAdmin, wrap(async (req, res) => {
   const today = isDate(req.query.today) ? req.query.today : new Date().toISOString().slice(0, 10);
   const users = (await q(
-    `select u.id, u.username, u.is_admin, to_char(u.created_at, 'YYYY-MM-DD') as created,
+    `select u.id, u.username, u.is_admin, u.profile, u.level, to_char(u.created_at, 'YYYY-MM-DD') as created,
             (select to_char(max(a.created_at), 'YYYY-MM-DD') from attempts a where a.user_id = u.id) as last_activity,
             (select count(*)::int from attempts a where a.user_id = u.id and a.retry = false and a.day between $1::date - 6 and $1::date) as week_total,
             (select count(*)::int from attempts a where a.user_id = u.id and a.retry = false and a.correct and a.day between $1::date - 6 and $1::date) as week_ok
        from users u order by u.is_admin desc, u.created_at, u.id`, [today])).rows;
   res.json({ ok: true, users, me: req.user.id });
+}));
+
+app.patch('/api/admin/users/:id', auth, requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const profile = req.body.profile;
+  if (!id || (profile !== 'general' && profile !== 'personal')) return err(res, 400, 'Datos no válidos.');
+  const r = await q('update users set profile = $1 where id = $2 returning id, profile', [profile, id]);
+  if (!r.rows[0]) return err(res, 404, 'Usuario no encontrado.');
+  res.json({ ok: true, user: r.rows[0] });
 }));
 
 app.post('/api/admin/users', auth, requireAdmin, wrap(async (req, res) => {
@@ -416,8 +599,8 @@ app.post('/api/admin/users', auth, requireAdmin, wrap(async (req, res) => {
   const { salt, hash } = await hashPassword(password);
   try {
     const r = await q(
-      'insert into users(username, username_lower, salt, pass_hash, is_admin) values ($1,$2,$3,$4,$5) returning id, username, is_admin',
-      [username, username.toLowerCase(), salt, hash, Boolean(req.body.is_admin)]);
+      'insert into users(username, username_lower, salt, pass_hash, is_admin, profile) values ($1,$2,$3,$4,$5,$6) returning id, username, is_admin, profile',
+      [username, username.toLowerCase(), salt, hash, Boolean(req.body.is_admin), req.body.profile === 'personal' ? 'personal' : 'general']);
     res.json({ ok: true, user: r.rows[0] });
   } catch (e) {
     if (e.code === '23505') return err(res, 409, 'Ese usuario ya existe.');
@@ -467,12 +650,40 @@ app.get('/api/decks/:id/queue', auth, wrap(async (req, res) => {
   const today = isDate(req.query.today) ? req.query.today : null;
   if (!today) return err(res, 400, 'Falta la fecha de hoy.');
   const newLimit = Math.max(0, Math.min(50, parseInt(req.query.new, 10) || 0));
+  const base = { ok: true, kind: deck.kind, deckId: deck.id, title: deck.title };
 
   if (deck.kind === 'exercises') {
     const rows = (await q('select id, data from items where deck_id = $1 order by position', [deck.id])).rows;
-    return res.json({ ok: true, kind: 'exercises', title: deck.title, items: shuffle(rows.map(r => ({ id: r.id, q: r.data.q }))) });
+    return res.json(Object.assign(base, { items: shuffle(rows.map(r => ({ id: r.id, q: r.data.q }))) }));
   }
 
+  if (deck.kind === 'lesson') {
+    const row = (await q('select data from items where deck_id = $1 order by position limit 1', [deck.id])).rows[0];
+    const act = (await q(
+      `select count(*)::int as n, coalesce(bool_or(day = $3::date), false) as today
+         from activities where user_id = $1 and deck_id = $2 and kind = 'lesson'`, [req.user.id, deck.id, today])).rows[0];
+    return res.json(Object.assign(base, { blocks: row ? row.data.blocks : [], read: act.n > 0, readToday: act.today }));
+  }
+
+  if (deck.kind === 'reading') {
+    const rows = (await q('select id, data from items where deck_id = $1 order by position', [deck.id])).rows;
+    const textRow = rows.find(r => r.data.text);
+    return res.json(Object.assign(base, {
+      paragraphs: textRow ? textRow.data.text : [],
+      questions: rows.filter(r => r.data.q).map(r => ({ id: r.id, q: r.data.q, options: shuffle(r.data.options.slice()) }))
+    }));
+  }
+
+  if (deck.kind === 'writing') {
+    const row = (await q('select data from items where deck_id = $1 order by position limit 1', [deck.id])).rows[0];
+    const d = row ? row.data : { prompt: [], min: 0, tips: [] };
+    const history = (await q(
+      `select to_char(day, 'YYYY-MM-DD') as day, words, text from activities
+        where user_id = $1 and deck_id = $2 and kind = 'writing' order by created_at desc limit 5`, [req.user.id, deck.id])).rows;
+    return res.json(Object.assign(base, { prompt: d.prompt, min: d.min || 0, tips: d.tips || [], history }));
+  }
+
+  // tarjetas
   const due = (await q(
     `select i.id, i.data from items i join progress p on p.item_id = i.id and p.user_id = $1
       where i.deck_id = $2 and p.due <= $3::date`, [req.user.id, deck.id, today])).rows;
@@ -486,7 +697,7 @@ app.get('/api/decks/:id/queue', auth, wrap(async (req, res) => {
 
   const mk = (r, isNew) => ({ id: r.id, es: r.data.es, masked: maskSentence(r.data.en, r.data.ex), first: r.data.en[0], len: r.data.en.replace(/ /g, '').length, isNew });
   const items = shuffle(due.map(r => mk(r, false)).concat(fresh.map(r => mk(r, true))));
-  res.json({ ok: true, kind: 'cards', title: deck.title, items });
+  res.json(Object.assign(base, { items }));
 }));
 
 app.post('/api/answer', auth, wrap(async (req, res) => {
@@ -499,10 +710,24 @@ app.post('/api/answer', auth, wrap(async (req, res) => {
 
   const r = await q(
     `select i.id, i.data, d.id as deck_id, d.title, d.kind
-       from items i join decks d on d.id = i.deck_id
-      where i.id = $1 and (d.published = true or $2::boolean)`, [itemId, req.user.is_admin]);
+       from items i join decks d on d.id = i.deck_id left join units u on u.id = d.unit_id
+      where i.id = $1 and ${VIS('$2', '$3')}`, [itemId, req.user.is_admin, Boolean(req.user.personal)]);
   const item = r.rows[0];
   if (!item) return err(res, 404, 'Elemento no encontrado.');
+
+  // preguntas de lectura (opción múltiple): no usan repetición espaciada
+  if (item.kind === 'reading') {
+    if (!item.data.q) return err(res, 400, 'Elemento no válido.');
+    const choice = String(req.body.choice == null ? '' : req.body.choice).slice(0, 300);
+    const expected = item.data.options[item.data.correct];
+    const correct = choice === expected;
+    await q(
+      `insert into attempts(user_id, deck_id, deck_title, kind, prompt, expected, answer, correct, retry, day)
+       values ($1,$2,$3,'reading',$4,$5,$6,$7,false,$8)`,
+      [req.user.id, item.deck_id, item.title, item.data.q, expected, choice, correct, today]);
+    return res.json({ ok: true, correct, expected, example: null, why: item.data.why || '' });
+  }
+  if (item.kind !== 'cards' && item.kind !== 'exercises') return err(res, 400, 'Este tipo de mazo no tiene respuestas que comprobar.');
 
   const accepted = item.kind === 'cards' ? [item.data.en].concat(item.data.alt || []) : item.data.a;
   const correct = !skipped && normalize(answer) !== '' && accepted.some(a => normalize(a) === normalize(answer));
@@ -533,6 +758,150 @@ app.post('/api/answer', auth, wrap(async (req, res) => {
     ok: true, correct, expected: accepted[0],
     example: item.kind === 'cards' ? item.data.ex : null,
     why: item.kind === 'exercises' ? (item.data.why || '') : null
+  });
+}));
+
+// Marca como hecha una lección o una lectura.
+app.post('/api/complete', auth, wrap(async (req, res) => {
+  const deckId = parseInt(req.body.deckId, 10);
+  const today = req.body.today;
+  const kind = req.body.kind;
+  if (!deckId || !isDate(today) || (kind !== 'lesson' && kind !== 'reading')) return err(res, 400, 'Datos no válidos.');
+  const deck = await getAccessibleDeck(deckId, req.user);
+  if (!deck || deck.kind !== kind) return err(res, 404, 'Mazo no encontrado.');
+  let ok = null, total = null;
+  if (kind === 'reading') {
+    total = parseInt(req.body.total, 10); ok = parseInt(req.body.ok, 10);
+    if (!(total >= 1 && total <= 50 && ok >= 0 && ok <= total)) return err(res, 400, 'Resultado no válido.');
+  }
+  await q(
+    `insert into activities(user_id, deck_id, deck_title, kind, day, score_ok, score_total) values ($1,$2,$3,$4,$5,$6,$7)`,
+    [req.user.id, deck.id, deck.title, kind, today, ok, total]);
+  res.json({ ok: true });
+}));
+
+// Guarda un texto escrito (se incluye en el informe para que una IA lo corrija).
+app.post('/api/writing', auth, wrap(async (req, res) => {
+  const deckId = parseInt(req.body.deckId, 10);
+  const today = req.body.today;
+  if (!deckId || !isDate(today)) return err(res, 400, 'Datos no válidos.');
+  const deck = await getAccessibleDeck(deckId, req.user);
+  if (!deck || deck.kind !== 'writing') return err(res, 404, 'Tarea no encontrada.');
+  const text = String(req.body.text || '').trim();
+  if (text.length > 6000) return err(res, 400, 'El texto es demasiado largo (máximo 6000 caracteres).');
+  const words = text.split(/\s+/).filter(Boolean).length;
+  const row = (await q('select data from items where deck_id = $1 order by position limit 1', [deck.id])).rows[0];
+  const min = row && row.data.min ? row.data.min : 0;
+  if (!words) return err(res, 400, 'Escribe tu texto antes de guardar.');
+  if (words < min) return err(res, 400, 'Escribe al menos ' + min + ' palabras (llevas ' + words + ').');
+  await q(
+    `insert into activities(user_id, deck_id, deck_title, kind, day, text, words) values ($1,$2,$3,'writing',$4,$5,$6)`,
+    [req.user.id, deck.id, deck.title, today, text, words]);
+  res.json({ ok: true, words });
+}));
+
+// Guarda un intento de práctica oral (la nota es aproximada: la calcula el navegador al transcribir tu voz).
+app.post('/api/speech', auth, wrap(async (req, res) => {
+  const today = req.body.today;
+  if (!isDate(today)) return err(res, 400, 'Fecha no válida.');
+  const target = String(req.body.target || '').trim().slice(0, 400);
+  const heard = String(req.body.heard == null ? '' : req.body.heard).trim().slice(0, 400);
+  const score = parseInt(req.body.score, 10);
+  if (!target || !(score >= 0 && score <= 100)) return err(res, 400, 'Datos no válidos.');
+  let deckId = null, title = 'Práctica de voz';
+  if (req.body.deckId) {
+    const d = await getAccessibleDeck(parseInt(req.body.deckId, 10), req.user);
+    if (d) { deckId = d.id; title = d.title; }
+  }
+  const words = target.split(/\s+/).filter(Boolean).length;
+  await q(
+    `insert into activities(user_id, deck_id, deck_title, kind, day, text, target, score_ok, score_total, words)
+     values ($1,$2,$3,'speaking',$4,$5,$6,$7,100,$8)`,
+    [req.user.id, deckId, title, today, heard, target, score, words]);
+  res.json({ ok: true });
+}));
+
+// Frases para practicar la pronunciación: ejemplos de tarjetas y de lecciones (de la unidad pedida primero).
+app.get('/api/phrases', auth, wrap(async (req, res) => {
+  const n = Math.max(1, Math.min(10, parseInt(req.query.n, 10) || 5));
+  const unitId = parseInt(req.query.unit, 10) || null;
+  const rows = (await q(
+    `select d.id as deck_id, d.kind, d.unit_id, i.data
+       from items i join decks d on d.id = i.deck_id left join units u on u.id = d.unit_id
+      where d.kind in ('cards', 'lesson') and ${VIS('$1', '$2')}`, [req.user.is_admin, Boolean(req.user.personal)])).rows;
+  const pool = [];
+  rows.forEach(r => {
+    if (r.kind === 'cards') pool.push({ deckId: r.deck_id, unit: r.unit_id, text: r.data.ex, es: r.data.es });
+    else (r.data.blocks || []).forEach(b => { if (b.t === 'ex') pool.push({ deckId: r.deck_id, unit: r.unit_id, text: b.en, es: b.es || '' }); });
+  });
+  const seen = new Set();
+  const list = pool.filter(p => {
+    const w = String(p.text || '').trim().split(/\s+/).length;
+    const k = String(p.text || '').toLowerCase();
+    if (w < 3 || w > 25 || seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+  const scoped = unitId ? list.filter(p => p.unit === unitId) : [];
+  const rest = list.filter(p => scoped.indexOf(p) === -1);
+  const ordered = shuffle(scoped).concat(shuffle(rest)).slice(0, n);
+  res.json({ ok: true, phrases: ordered.map(p => ({ deckId: p.deckId, text: p.text, es: p.es })) });
+}));
+
+// Plan del día: qué toca y qué ya hiciste hoy. Con ?unit=ID, el tema nuevo sale de esa unidad.
+app.get('/api/today', auth, wrap(async (req, res) => {
+  const today = req.query.today;
+  if (!isDate(today)) return err(res, 400, 'Fecha no válida.');
+  const np = Math.max(0, Math.min(50, parseInt(req.query.new, 10) || 0));
+  const unitId = parseInt(req.query.unit, 10) || null;
+  const uid = req.user.id, admin = req.user.is_admin, personal = Boolean(req.user.personal);
+  const inScope = d => unitId === null || d.unit_id === unitId;
+
+  const decks = (await q(
+    `select d.id, d.title, d.kind, d.unit_id from decks d left join units u on u.id = d.unit_id
+      where ${VIS('$1', '$2')} order by d.created_at, d.id`, [admin, personal])).rows;
+  const cardRows = (await q(
+    `select i.deck_id,
+            count(*) filter (where p.item_id is null)::int as fresh,
+            count(*) filter (where p.item_id is not null and p.due <= $2::date)::int as due,
+            count(*) filter (where p.first_day = $2::date)::int as seen_today
+       from items i join decks d on d.id = i.deck_id left join units u on u.id = d.unit_id
+       left join progress p on p.item_id = i.id and p.user_id = $1
+      where d.kind = 'cards' and ${VIS('$3', '$4')}
+      group by i.deck_id`, [uid, today, admin, personal])).rows;
+  const byDeck = new Map(cardRows.map(r => [r.deck_id, r]));
+  let due = 0, newAvail = 0, newToday = 0, cardDecks = 0, dueDeck = null, newDeck = null;
+  decks.filter(d => d.kind === 'cards').forEach(d => {
+    const c = byDeck.get(d.id) || { fresh: 0, due: 0, seen_today: 0 };
+    cardDecks++; due += c.due; newToday += c.seen_today;
+    const avail = inScope(d) ? Math.min(c.fresh, Math.max(0, np - c.seen_today)) : 0;
+    newAvail += avail;
+    if (!dueDeck && c.due > 0) dueDeck = d.id;
+    if (!newDeck && avail > 0) newDeck = d.id;
+  });
+  const reviewedToday = (await q(
+    `select count(*)::int as n from attempts where user_id = $1 and day = $2::date and kind = 'cards' and retry = false`, [uid, today])).rows[0].n;
+
+  const acts = (await q(
+    `select deck_id, to_char(max(day), 'YYYY-MM-DD') as last_day from activities
+      where user_id = $1 and deck_id is not null and kind <> 'speaking' group by deck_id`, [uid])).rows;
+  const lastBy = new Map(acts.map(a => [a.deck_id, a.last_day]));
+  const todayActs = (await q('select kind, deck_title from activities where user_id = $1 and day = $2::date order by created_at desc', [uid, today])).rows;
+  const speakingToday = todayActs.filter(a => a.kind === 'speaking').length;
+
+  const pick = kind => {
+    const list = decks.filter(d => d.kind === kind && inScope(d));
+    const doneT = todayActs.find(a => a.kind === kind);
+    let next;
+    if (kind === 'lesson') next = list.find(d => !lastBy.has(d.id));
+    else next = list.slice().sort((a, b) => (lastBy.get(a.id) || '').localeCompare(lastBy.get(b.id) || ''))[0];
+    return { total: list.length, doneToday: Boolean(doneT), todayTitle: doneT ? doneT.deck_title : null, next: next ? { id: next.id, title: next.title } : null };
+  };
+  const note = (await q('select 1 from notes where user_id = $1 and day = $2::date', [uid, today])).rows.length > 0;
+
+  res.json({
+    ok: true,
+    cards: { decks: cardDecks, due, newAvail, newToday, reviewedToday, dueDeck, newDeck },
+    lesson: pick('lesson'), reading: pick('reading'), writing: pick('writing'), speakingToday, note
   });
 }));
 
@@ -571,11 +940,31 @@ app.get('/api/stats', auth, wrap(async (req, res) => {
 
 /* ---------- informe descargable ---------- */
 const FORMAT_HELP = [
+  '@unit A1.1 Título de la unidad   (opcional: agrupa los mazos que vienen después; niveles A1, A2, B1, B2, C1, C2)',
+  'audience: general   (o personal)',
+  'desc: Descripción corta',
+  '',
   '@deck Título del mazo',
   'palabra en inglés | traducción | frase de ejemplo que contenga la palabra | alternativa1; alternativa2',
   '',
   '@exercises Título de los ejercicios',
-  'Frase con ___ hueco => respuesta1 / respuesta2 | explicación breve'
+  'Frase con ___ hueco => respuesta1 / respuesta2 | explicación breve',
+  '',
+  '@lesson Título de la lección',
+  '## Subtítulo',
+  'Un párrafo de explicación.',
+  '- elemento de lista',
+  '> English example | traducción',
+  '! Nota o consejo destacado',
+  '',
+  '@reading Título de la lectura',
+  'Párrafo del texto (cada línea es un párrafo).',
+  '? Pregunta | opción A; opción B*; opción C | explicación breve (la correcta lleva *)',
+  '',
+  '@writing Título de la tarea',
+  'Instrucción de la tarea.',
+  'min: 25',
+  'tip: Un consejo útil'
 ].join('\n');
 
 async function buildReport(user, period, date) {
@@ -583,6 +972,9 @@ async function buildReport(user, period, date) {
   const att = (await q(
     `select deck_title, kind, prompt, expected, answer, correct, retry, to_char(day,'YYYY-MM-DD') as day
        from attempts where user_id = $1 and day between $2::date and $3::date order by created_at`, [user.id, start, date])).rows;
+  const acts = (await q(
+    `select deck_title, kind, text, target, score_ok, score_total, words, to_char(day,'YYYY-MM-DD') as day
+       from activities where user_id = $1 and day between $2::date and $3::date order by created_at`, [user.id, start, date])).rows;
   const notes = (await q(
     `select to_char(day,'YYYY-MM-DD') as day, text from notes where user_id = $1 and day between $2::date and $3::date order by day`, [user.id, start, date])).rows;
   const boxRows = (await q('select box, count(*)::int as n from progress where user_id = $1 group by box order by box', [user.id])).rows;
@@ -620,6 +1012,10 @@ async function buildReport(user, period, date) {
     byDeck: byDeck.map(d => ({ deck: d.key, attempts: d.total, correct: d.ok, accuracy: Math.round(d.ok * 100 / d.total) })),
     byDay: byDay.map(d => ({ day: d.key, attempts: d.total, correct: d.ok })),
     mistakes: mistakeList,
+    lessons: acts.filter(a => a.kind === 'lesson').map(a => ({ deck: a.deck_title, day: a.day })),
+    readings: acts.filter(a => a.kind === 'reading').map(a => ({ deck: a.deck_title, day: a.day, correct: a.score_ok, total: a.score_total })),
+    writings: acts.filter(a => a.kind === 'writing').map(a => ({ deck: a.deck_title, day: a.day, words: a.words, text: a.text })),
+    speaking: acts.filter(a => a.kind === 'speaking').map(a => ({ deck: a.deck_title, day: a.day, target: a.target, heard: a.text, score: a.score_ok })),
     boxes: boxRows.reduce((o, r) => { o[r.box] = r.n; return o; }, {}),
     notes
   };
@@ -636,8 +1032,10 @@ function reportToMarkdown(r) {
   L.push('## Instrucciones para la IA');
   L.push('Actúa como tutor de idiomas. Con los datos de este informe:');
   L.push('1. Identifica los 3 a 5 patrones de error más importantes y su causa probable.');
-  L.push('2. Propón un plan de repaso para los próximos 7 días, con tiempos realistas.');
-  L.push('3. Crea ejercicios y tarjetas nuevas sobre mis puntos débiles, EXACTAMENTE en este formato de texto (lo importaré en mi app), sin explicaciones extra dentro del bloque:');
+  L.push('2. Corrige los textos de la sección «Textos que escribí»: devuélveme cada texto corregido y una lista breve de mis errores con su explicación.');
+  L.push('3. Si hay una sección de pronunciación, dime qué palabras o sonidos debo practicar y dame consejos concretos para cada una.');
+  L.push('4. Propón un plan de repaso para los próximos 7 días, con tiempos realistas.');
+  L.push('5. Crea ejercicios, tarjetas, lecciones, lecturas o tareas de escritura nuevas sobre mis puntos débiles, EXACTAMENTE en este formato de texto (lo importaré en mi app), sin explicaciones extra dentro del bloque:');
   L.push('');
   L.push('```');
   L.push(FORMAT_HELP);
@@ -645,12 +1043,13 @@ function reportToMarkdown(r) {
   L.push('');
   L.push('## Resumen');
   if (!r.summary.attempts) {
-    L.push('Sin intentos registrados en este periodo.');
+    L.push('Sin respuestas registradas en este periodo.');
   } else {
     L.push('- Respuestas (primer intento): ' + r.summary.attempts);
     L.push('- Aciertos: ' + r.summary.correct + ' (' + r.summary.accuracy + ' %)');
     L.push('- Reintentos tras un fallo: ' + r.summary.retries);
   }
+  L.push('- Lecciones leídas: ' + r.lessons.length + ' · Lecturas hechas: ' + r.readings.length + ' · Textos escritos: ' + r.writings.length + ' · Prácticas de pronunciación: ' + r.speaking.length);
   const bx = [1, 2, 3, 4, 5].map(b => 'caja ' + b + ': ' + (r.boxes[b] || 0)).join(', ');
   L.push('- Estado de las tarjetas (repetición espaciada): ' + bx + '. La caja 5 significa "dominada".');
   if (r.byDeck.length) {
@@ -663,12 +1062,37 @@ function reportToMarkdown(r) {
     L.push('## Por día');
     r.byDay.forEach(d => L.push('- ' + d.day + ': ' + d.correct + '/' + d.attempts));
   }
+  if (r.lessons.length || r.readings.length) {
+    L.push('');
+    L.push('## Lecciones y lecturas');
+    r.lessons.forEach(l => L.push('- Lección leída (' + l.day + '): ' + l.deck));
+    r.readings.forEach(l => L.push('- Lectura (' + l.day + '): ' + l.deck + ' — ' + l.correct + '/' + l.total + ' preguntas bien'));
+  }
   L.push('');
   L.push('## Errores (de más a menos frecuentes)');
   if (!r.mistakes.length) L.push('Sin errores registrados.');
   r.mistakes.forEach(m => {
     L.push('- [' + m.deck + '] ' + m.prompt + ' | esperado: "' + m.expected + '" | mis respuestas: ' + (m.answers.length ? m.answers.map(a => '"' + a + '"').join(', ') : '(en blanco / no lo sabía)') + ' | veces: ' + m.times);
   });
+  if (r.speaking.length) {
+    const avg = Math.round(r.speaking.reduce((t, x) => t + x.score, 0) / r.speaking.length);
+    L.push('');
+    L.push('## Práctica de pronunciación');
+    L.push('Nota aproximada (0-100): mide cuánto de lo que dije entendió el reconocimiento de voz del navegador, no la pronunciación sonido por sonido. Promedio: ' + avg + ' en ' + r.speaking.length + ' intentos. Los más bajos:');
+    r.speaking.slice().sort((x, y) => x.score - y.score).slice(0, 12).forEach(x => {
+      L.push('- ' + x.score + ' · debía decir: "' + x.target + '" · se entendió: "' + (x.heard || '(nada)') + '"');
+    });
+  }
+  if (r.writings.length) {
+    L.push('');
+    L.push('## Textos que escribí (corrígelos)');
+    r.writings.forEach(w => {
+      L.push('### ' + w.deck + ' (' + w.day + ', ' + w.words + ' palabras)');
+      L.push('```');
+      L.push(w.text);
+      L.push('```');
+    });
+  }
   if (r.notes.length) {
     L.push('');
     L.push('## Mis notas de autoevaluación');

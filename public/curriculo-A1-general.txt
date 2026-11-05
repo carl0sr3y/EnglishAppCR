@@ -1,0 +1,165 @@
+// Ruta GENERAL: unidades A1.1 y A1.2 para todos los usuarios (temas cotidianos).
+// Importar en el panel de administración: Importar -> Revisar -> Guardar.
+// Después, publica cada unidad cuando la hayas revisado (pestaña Contenido).
+
+@unit A1.1 Saludos y presentaciones
+audience: general
+desc: Saludar, despedirte, presentarte y decir de dónde eres con el verbo to be.
+
+@lesson A1.1 - Lección: saludos y el verbo to be
+## Saludar y despedirte
+Con estas frases puedes empezar cualquier conversación.
+> Hello! My name is Ana. | ¡Hola! Me llamo Ana.
+> Nice to meet you. | Mucho gusto.
+> How are you today? | ¿Cómo estás hoy?
+> See you later! | ¡Hasta luego!
+## El verbo to be (ser / estar)
+Une a una persona con algo: quién es, de dónde es, cómo está.
+- I am (yo soy / estoy)
+- you are (tú eres / estás; ustedes son / están)
+- he / she / it is (él, ella, eso es / está)
+- we are (nosotros somos / estamos)
+- they are (ellos son / están)
+! En español puedes omitir el sujeto ("soy Ana"). En inglés casi nunca: siempre dices I am Ana.
+## Frases completas
+> I am a student. | Soy estudiante.
+> She is from Spain. | Ella es de España.
+> We are friends. | Somos amigos.
+## Negativo y pregunta
+Para el negativo agrega not. Para preguntar, pon el verbo primero.
+> I am not tired. | No estoy cansado.
+> He isn't at home. | Él no está en casa.
+> Are you ready? | ¿Estás listo?
+> Is she a doctor? | ¿Ella es médica?
+## Recuerda
+Para presentarte puedes decir My name is... o I am... Las dos son correctas.
+
+@deck A1.1 - Saludos y despedidas
+hello | hola | Hello, my name is Ana.
+goodbye | adiós | Goodbye, see you tomorrow.
+good morning | buenos días | Good morning, Mr. Brown.
+good night | buenas noches | Good night and sleep well.
+please | por favor | Water, please.
+thank you | gracias | Thank you for your help.
+sorry | lo siento | Sorry, I am late.
+nice to meet you | mucho gusto | Nice to meet you, Tom.
+how are you | cómo estás | Hello, how are you today?
+see you later | hasta luego | See you later, Ana.
+
+@deck A1.1 - Países y profesiones
+teacher | profesor o profesora | My mother is a teacher.
+doctor | médico o médica | The doctor is very kind.
+student | estudiante | I am a student.
+engineer | ingeniero o ingeniera | He is an engineer.
+cook | cocinero o cocinera | She is a cook in a small restaurant.
+Spain | España | She is from Spain.
+Mexico | México | Mexico is a big country.
+Italy | Italia | Italy is famous for pasta.
+Guatemala | Guatemala | I live in Guatemala.
+the United States | Estados Unidos | He is from the United States.
+
+@exercises A1.1 - Ejercicios: am, is o are
+I ___ a student. => am | Con I siempre se usa am.
+She ___ from Mexico. => is | She = ella: is.
+We ___ friends. => are | We = nosotros: are.
+They ___ teachers. => are | They = ellos: are.
+My name ___ Ana. => is | My name es "eso": is.
+You ___ very kind. => are | You siempre va con are.
+He ___ not at home. => is | Negativo: is not (isn't).
+___ you ready? => Are | En la pregunta el verbo va primero.
+___ she a doctor? => Is | Pregunta con she: Is she...?
+I ___ not tired. => am | Negativo con I: am not (I'm not).
+
+@reading A1.1 - Lectura: Meet Ana and Tom
+Hello! My name is Ana. I am from Spain. I am a teacher. I am twenty-eight years old.
+This is my friend Tom. He is from the United States. He is a doctor. Tom and I are friends. We are in Madrid this week.
+Tom is very kind. He is happy today. We are at a small cafe. The coffee is great!
+? Where is Ana from? | Italy; Spain*; Mexico | Dice: I am from Spain.
+? What is Ana's job? | Doctor; Student; Teacher* | Dice: I am a teacher.
+? Where is Tom from? | The United States*; Spain; Guatemala | Dice: He is from the United States.
+? What is Tom's job? | Teacher; Doctor*; Cook | Dice: He is a doctor.
+? Where are Ana and Tom this week? | In Madrid*; In New York; At school | Dice: We are in Madrid this week.
+
+@writing A1.1 - Escritura: preséntate
+Escribe una presentación de 5 frases: tu nombre, de dónde eres, a qué te dedicas y cómo estás hoy. Usa I am... y My name is...
+min: 20
+tip: Empieza así: Hello! My name is...
+tip: Revisa que cada frase tenga el verbo to be (am / is / are) cuando lo necesite.
+
+@unit A1.2 Mi familia y mi casa
+audience: general
+desc: Hablar de tu familia y tu casa con have / has y my, your, his, her, our, their.
+
+@lesson A1.2 - Lección: have / has y los posesivos
+## Have / has (tener)
+Para decir lo que tienes. Con he, she, it se usa has; con los demás, have.
+- I have
+- you have
+- he / she / it has
+- we / they have
+> I have two brothers. | Tengo dos hermanos.
+> She has a big family. | Ella tiene una familia grande.
+## Posesivos: de quién es
+Van antes del sustantivo y no cambian por el plural.
+- my (mi) · your (tu, su de usted) · his (su de él) · her (su de ella)
+- our (nuestro) · their (su de ellos)
+> This is my mother. | Esta es mi madre.
+> That is his car. | Ese es su coche.
+> They love their garden. | Ellos aman su jardín.
+! Cuidado: en inglés se dice his o her según quién tiene la cosa, no según la cosa. His mother = la madre de él.
+## El 's: de quién es
+Para decir "de alguien" agregas 's al nombre.
+> Tom's house is big. | La casa de Tom es grande.
+> My sister's room is small. | El cuarto de mi hermana es pequeño.
+
+@deck A1.2 - La familia
+mother | madre | My mother is a nurse.
+father | padre | His father is an engineer.
+brother | hermano | I have one brother.
+sister | hermana | My sister is twelve years old.
+grandmother | abuela | My grandmother is seventy.
+grandfather | abuelo | My grandfather has a small garden.
+son | hijo | Their son is very funny.
+daughter | hija | She has a daughter.
+parents | padres | My parents are at home.
+children | hijos o niños | They have three children.
+
+@deck A1.2 - La casa
+house | casa | Their house is not very big.
+kitchen | cocina | My grandmother cooks in the kitchen.
+bedroom | dormitorio | My bedroom is on the second floor.
+bathroom | baño | The bathroom is next to my bedroom.
+garden | jardín | We eat lunch in the garden.
+table | mesa | The table is in the kitchen.
+chair | silla | This chair is very comfortable.
+door | puerta | Please close the door.
+window | ventana | Open the window, please.
+room | cuarto | Our room is small but nice.
+
+@exercises A1.2 - Ejercicios: have / has y posesivos
+I ___ two brothers. => have | Con I se usa have.
+She ___ a big family. => has | Con she se usa has.
+We ___ a small house. => have | Con we se usa have.
+He ___ a sister. => has | Con he se usa has.
+This is ___ mother. (yo) => my | Yo -> my.
+That is ___ car. (él) => his | Él -> his.
+Those are ___ keys. (ella) => her | Ella -> her.
+We love ___ house. (nosotros) => our | Nosotros -> our.
+They like ___ garden. (ellos) => their | Ellos -> their.
+Is this ___ book? (tú) => your | Tú -> your.
+
+@reading A1.2 - Lectura: Tom's family
+Tom has a big family. He has two sisters and one brother. His mother is a nurse and his father is an engineer.
+His grandmother lives with them. She is seventy years old. She cooks in the kitchen every Sunday.
+Tom's house is not very big, but it has a nice garden. The family eats lunch in the garden when it is sunny.
+? How many sisters does Tom have? | One; Two*; Three | Dice: He has two sisters.
+? What is Tom's mother's job? | Nurse*; Teacher; Engineer | Dice: His mother is a nurse.
+? Who lives with the family? | His grandmother*; His brother; His friend | Dice: His grandmother lives with them.
+? When does the grandmother cook? | Every Sunday*; Every morning; Never | Dice: She cooks in the kitchen every Sunday.
+? Where does the family eat when it is sunny? | In the kitchen; In the garden*; At school | Dice: The family eats lunch in the garden.
+
+@writing A1.2 - Escritura: tu familia
+Escribe de 5 a 6 frases sobre tu familia: quiénes son, cómo se llaman y qué hacen. Usa have / has y my, his, her, our o their.
+min: 25
+tip: Por ejemplo: I have two brothers. My mother is a teacher.
+tip: Recuerda: con he / she se usa has, y los posesivos van antes del sustantivo.

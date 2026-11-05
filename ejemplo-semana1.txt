@@ -1,5 +1,67 @@
-// Ejemplo listo para importar: Semana 1 del plan de inglés.
-// Formato: ver «Ver el formato» dentro de la app.
+// Ejemplo PERSONAL: tu Semana 1 (arte, programación e Italia) como una unidad del plan personalizado.
+// Solo la ven las cuentas con "Plan personalizado". Las cuentas generales no la ven.
+// Importar en el panel de administración: Importar -> Revisar -> Guardar.
+
+@unit A1.1 Semana 1: arte, programación e Italia
+audience: personal
+desc: Tu plan: presente continuo y 30 palabras de arte, programación y cultura de otros países.
+
+@lesson Semana 1 - Lección: el verbo to be
+## Para qué sirve
+El verbo to be une a una persona con algo: quién es, cómo está o dónde está. Es la base de casi todo lo demás en inglés.
+> I am a developer. | Soy programador.
+> She is an artist. | Ella es artista.
+> They are in Rome. | Ellos están en Roma.
+## Cómo se conjuga
+- I am
+- he / she / it is
+- you / we / they are
+! En español puedes omitir el sujeto ("soy", "estoy"). En inglés casi nunca: siempre dices I am, she is, they are...
+## Negativo y pregunta
+Para el negativo agregas not. Para la pregunta pones el verbo primero.
+> I am not tired. | No estoy cansado.
+> She isn't here. | Ella no está aquí.
+> Is she Italian? | ¿Es italiana?
+> Are you ready? | ¿Estás listo?
+## Por qué importa
+Casi todos los tiempos que vienen después usan to be. Si lo dominas ahora, el presente continuo te saldrá casi solo.
+
+@lesson Semana 1 - Lección: presente continuo
+## Cuándo se usa
+Para lo que pasa ahora mismo o en esta etapa (esta semana, este mes).
+> I am painting a portrait now. | Estoy pintando un retrato ahora.
+> She is building a website this week. | Ella está construyendo una página web esta semana.
+## Cómo se forma
+Sujeto + am / is / are + verbo con -ing.
+- I am painting
+- he / she / it is drawing
+- you / we / they are coding
+! Tu error más común: olvidar am / is / are. Nunca dices "I painting"; siempre I am painting.
+## Ortografía del -ing
+- Normal: paint -> painting, draw -> drawing
+- Termina en -e: quita la e: code -> coding, write -> writing
+- Verbo corto con vocal + consonante: duplica la consonante: run -> running
+## Negativo y pregunta
+> I am not working today. | Hoy no estoy trabajando.
+> Are you learning Italian? | ¿Estás aprendiendo italiano?
+> Is she debugging the app? | ¿Está depurando la app?
+
+@lesson Semana 1 - Lección: presente simple o continuo
+## La regla
+Hábito o rutina: presente simple. Algo que pasa ahora o en esta etapa: presente continuo.
+> I write code every night. | Escribo código todas las noches.
+> I am writing a new feature today. | Hoy estoy escribiendo una funcionalidad nueva.
+## Tercera persona (he / she / it)
+El verbo lleva -s en afirmativo. En negativo usas doesn't + verbo base, sin -s.
+> Marco paints in the morning. | Marco pinta por la mañana.
+> She doesn't paint on Sundays. | Ella no pinta los domingos.
+## Palabras clave
+- Presente simple: always, usually, every day, on Mondays, never
+- Presente continuo: now, right now, at the moment, today, this week
+## Verbos que no llevan -ing
+Los verbos de gusto o pensamiento (like, love, want, know, need) casi nunca se usan en continuo.
+> I like Italian art. | Me gusta el arte italiano.
+! No digas "I am liking Italian art". Di I like Italian art.
 
 @deck Semana 1 - Arte
 brush | pincel | I use a thin brush for the small details.
@@ -56,3 +118,26 @@ She ___ (not like) spicy food. => doesn't like / does not like | Like es un verb
 They ___ (have) dinner at 8 pm every day. => have | every day = hábito, Present Simple.
 At the moment he ___ (have) dinner. => is having | At the moment = ahora. Have dinner sí admite -ing.
 Escribe la pregunta: you / draw / faces / this week => are you drawing faces this week | Are + sujeto + verbo-ing: Are you drawing faces this week?
+
+@reading Semana 1 - Lectura: Giulia's two hobbies
+Giulia lives in Florence, Italy. She is twenty-six years old and she works as a web developer for a small museum. Every morning she walks across the Ponte Vecchio bridge, and she always stops to look at the river.
+Last year she built a website where visitors can see the museum's paintings on their phones. Before she started that project, she was learning to paint with watercolors in the evenings.
+Now she is combining both hobbies: she is creating an app that turns her paintings into puzzles. She hasn't finished it yet, but she is going to launch it next spring. Her friends think it is a great idea.
+? Where does Giulia work? | In a restaurant; In a small museum*; In a school; In a bank | Dice que trabaja como web developer para un museo pequeño.
+? What did she build last year? | A video game; A bridge; A website for the museum's paintings*; A new painting | "Last year she built a website..."
+? What was she doing in the evenings before the website project? | Learning to paint with watercolors*; Building an app; Traveling to Rome; Working at the museum | Past Progressive: was learning = estaba aprendiendo.
+? What is she going to do next spring? | Close the museum; Launch her app*; Move to another city; Paint a new picture | "She is going to launch it next spring."
+? "She hasn't finished it yet." What does it mean? | The app is ready; The app is still not complete*; She lost the app; She doesn't like the app | Yet en negativo = todavía no.
+? In the text, "combining both hobbies" means: | Separating them; Forgetting them; Joining them together*; Selling them | Combining = combinando, juntando.
+
+@writing Semana 1 - Escritura 1: lo que haces ahora
+Escribe 5 frases sobre lo que estás haciendo ahora o esta semana en tu arte, tu programación o algo de otro país que te interese. Usa am / is / are + verbo con -ing.
+min: 25
+tip: Empieza con I am... y revisa que cada verbo en -ing tenga am / is / are antes.
+tip: Cuando termines, léelo en voz alta una vez. Hablar también es producir.
+
+@writing Semana 1 - Escritura 2: tu texto de la semana
+Escribe un texto de 8 frases sobre Italia, el arte o la programación. Incluye 2 frases con presente continuo, 2 de hábito (con -s en he / she), 1 negativa y 1 pregunta. Usa al menos 5 palabras de las tarjetas de esta semana.
+min: 50
+tip: Usa palabras como landscape, gallery, feature o launch.
+tip: Pégalo en tu informe: una IA puede corregirlo y explicarte cada error.

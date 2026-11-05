@@ -25,16 +25,25 @@ async function api(path, opts) {
   return data;
 }
 
-/* ---------- tema claro / oscuro ---------- */
+/* ---------- temas: oscuro, noche suave y claro ---------- */
+const THEMES = ['dark', 'soft', 'light'];
+const THEME_NAMES = {dark: 'Oscuro', soft: 'Noche suave', light: 'Claro'};
+const THEME_COLOR = {dark: '#0D1424', soft: '#15161A', light: '#EDF1F8'};
 function applyTheme(t) {
+  if (THEMES.indexOf(t) === -1) t = 'dark';
   document.documentElement.dataset.theme = t;
-  document.querySelectorAll('.themebtn').forEach(b => { b.textContent = t === 'dark' ? 'Modo claro' : 'Modo oscuro'; b.setAttribute('aria-pressed', t === 'dark'); });
+  const tc = document.querySelector('meta[name="theme-color"]');
+  if (tc) tc.setAttribute('content', THEME_COLOR[t]);
+  document.querySelectorAll('.themebtn').forEach(b => { b.textContent = THEME_NAMES[t]; b.setAttribute('aria-label', 'Cambiar tema (actual: ' + THEME_NAMES[t] + ')'); b.title = 'Cambiar tema'; });
+  document.querySelectorAll('[data-themeopt]').forEach(b => b.setAttribute('aria-pressed', b.dataset.themeopt === t ? 'true' : 'false'));
 }
+function setTheme(t) { lsSet('theme', t); applyTheme(t); }
 function initTheme() {
   document.querySelectorAll('.themebtn').forEach(b => b.addEventListener('click', () => {
-    const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-    lsSet('theme', t); applyTheme(t);
+    const cur = document.documentElement.dataset.theme || 'dark';
+    setTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
   }));
+  document.querySelectorAll('[data-themeopt]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeopt)));
   applyTheme(document.documentElement.dataset.theme || 'dark');
 }
 
@@ -93,6 +102,37 @@ function makeTabs(root, onChange) {
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(place);
   requestAnimationFrame(place);
   return { select, refresh: () => requestAnimationFrame(place) };
+}
+
+
+/* ---------- móvil: modo ligero, teclado abierto y foco ---------- */
+function liteDefault() {
+  const mem = navigator.deviceMemory, cores = navigator.hardwareConcurrency;
+  return Boolean((mem && mem <= 2) || (cores && cores <= 2));
+}
+function applyLite(on) {
+  if (on) document.documentElement.dataset.lite = '1'; else delete document.documentElement.dataset.lite;
+  document.querySelectorAll('[data-liteopt]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.liteopt === 'on') === on ? 'true' : 'false'));
+}
+function initLite() {
+  const saved = lsGet('lite');
+  applyLite(saved === null ? liteDefault() : saved === true);
+  document.querySelectorAll('[data-liteopt]').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.liteopt === 'on'; lsSet('lite', v); applyLite(v);
+  }));
+}
+function initMobile() {
+  // si el teclado ocupa buena parte de la pantalla, se oculta la barra inferior para que no tape lo que escribes
+  if (window.visualViewport) {
+    const vv = window.visualViewport;
+    const check = () => document.documentElement.classList.toggle('kbd', vv.height < window.innerHeight * 0.75);
+    vv.addEventListener('resize', check); check();
+  }
+  document.addEventListener('focusin', e => {
+    if (e.target && e.target.matches && e.target.matches('input[type="text"],input[type="password"],textarea')) {
+      setTimeout(() => { try { e.target.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }); } catch (x) { /* */ } }, 320);
+    }
+  });
 }
 
 /* ---------- varios ---------- */

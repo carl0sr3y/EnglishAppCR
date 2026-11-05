@@ -2,9 +2,17 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tarjetas de idiomas</title>
-<script>try{document.documentElement.dataset.theme=(JSON.parse(localStorage.getItem("theme"))==="light")?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
+<script>try{document.documentElement.dataset.theme=(function(t){return t==="light"||t==="soft"?t:"dark"})(JSON.parse(localStorage.getItem("theme")))}catch(e){document.documentElement.dataset.theme="dark"}try{var l=JSON.parse(localStorage.getItem("lite"));if(l===null?(navigator.deviceMemory&&navigator.deviceMemory<=2):l===true)document.documentElement.dataset.lite="1"}catch(e){}</script>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0D1424">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tarjetas">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -16,8 +24,8 @@
   <section id="auth" hidden>
     <div class="authbox glass enter">
       <div class="row" style="justify-content:space-between">
-        <h1>Tarjetas de idiomas</h1>
-        <button class="btn ghost sm themebtn" type="button">Modo claro</button>
+        <div class="brandrow"><img class="logo" src="/icons/icon.svg" alt="" width="46" height="46"><h1>Tarjetas de idiomas</h1></div>
+        <button class="btn ghost sm themebtn" type="button">Oscuro</button>
       </div>
       <p class="muted" style="margin-top:8px">Aprende con repetición espaciada y lleva tu progreso.</p>
       <div class="seg">
@@ -45,24 +53,40 @@
   <!-- ===== Inicio ===== -->
   <section id="home" hidden>
     <header class="head">
-      <div>
-        <h1 id="hello">Hola</h1>
-        <p class="sub" id="helloSub">Elige un mazo y escribe las respuestas de memoria.</p>
+      <div class="brandrow">
+        <img class="logo" src="/icons/icon.svg" alt="" width="50" height="50">
+        <div>
+          <h1 id="hello">Hola</h1>
+          <p class="sub" id="helloSub"></p>
+        </div>
       </div>
-      <button class="btn ghost sm themebtn" type="button">Modo claro</button>
+      <div class="row">
+        <button class="btn sm" type="button" id="btnInstallTop" hidden>Instalar app</button>
+        <button class="btn ghost sm themebtn" type="button">Oscuro</button>
+      </div>
     </header>
 
-    <div class="panel" data-panel="decks">
-      <div class="banner glass" id="banner"></div>
-      <div class="row" style="margin:0 0 12px">
-        <label for="newPerDay" style="margin:0;font-weight:400" class="small muted">Tarjetas nuevas por día y mazo</label>
-        <select id="newPerDay" aria-label="Tarjetas nuevas por día">
-          <option>0</option><option>3</option><option selected>5</option><option>10</option><option>15</option><option>20</option>
-        </select>
+    <!-- Hoy -->
+    <div class="panel" data-panel="today">
+      <div class="glass card today-head">
+        <div>
+          <h2 style="margin:0">Tu día</h2>
+          <p class="muted small" id="todaySub" style="margin:2px 0 0"></p>
+        </div>
+        <div class="count" id="todayCount" aria-live="polite">0/0</div>
       </div>
-      <div id="decks" class="stack stagger"></div>
+      <div class="meter" aria-hidden="true" style="margin:12px 2px 6px"><i id="todayMeter"></i></div>
+      <div id="unitChip"></div>
+      <div id="steps" class="stack stagger"></div>
+      <div id="allset"></div>
     </div>
 
+    <!-- Ruta -->
+    <div class="panel" data-panel="path" hidden>
+      <div id="pathView"></div>
+    </div>
+
+    <!-- Progreso -->
     <div class="panel" data-panel="progress" hidden>
       <div class="tiles stagger" id="tiles"></div>
       <div class="glass card" style="margin-top:14px">
@@ -73,16 +97,17 @@
       </div>
       <div class="glass card" style="margin-top:14px">
         <h2>Nota del día</h2>
-        <p class="muted small">Cómo te fue, qué error repetiste, qué harás mañana. Se incluye en tu informe.</p>
+        <p class="muted small">Cómo te fue, qué error repetiste, qué harás mañana. Se incluye en tu informe y completa el último paso de tu día.</p>
         <textarea id="note" rows="4" maxlength="4000" aria-label="Nota del día"></textarea>
         <div class="msg good" id="noteMsg"></div>
       </div>
     </div>
 
+    <!-- Informe -->
     <div class="panel" data-panel="report" hidden>
       <div class="glass card">
         <h2>Informe para compartir con una IA</h2>
-        <p class="muted">Descarga tus resultados del día o de la semana. El informe incluye instrucciones para la IA: te propone un plan de repaso y te devuelve ejercicios nuevos sobre tus errores.</p>
+        <p class="muted">Descarga tus resultados del día o de la semana. Incluye tus errores, tus textos escritos, tu práctica de pronunciación e instrucciones para la IA: te corrige los textos, te propone un plan de repaso y te devuelve contenido nuevo listo para importar.</p>
         <div class="row" style="margin-top:14px">
           <a class="btn" id="repDay" href="#" download>Informe de hoy</a>
           <a class="btn" id="repWeek" href="#" download>Informe de la semana</a>
@@ -92,7 +117,30 @@
       </div>
     </div>
 
+    <!-- Cuenta -->
     <div class="panel" data-panel="account" hidden>
+      <div class="glass card" style="margin-bottom:14px">
+        <h2>Apariencia</h2>
+        <p class="muted small">«Noche suave» baja el brillo y el contraste, con grises cálidos, para sesiones largas de estudio.</p>
+        <div class="row">
+          <button class="btn ghost" type="button" data-themeopt="dark">Oscuro</button>
+          <button class="btn ghost" type="button" data-themeopt="soft">Noche suave</button>
+          <button class="btn ghost" type="button" data-themeopt="light">Claro</button>
+        </div>
+      </div>
+      <div class="glass card" style="margin-bottom:14px">
+        <h2>Rendimiento</h2>
+        <p class="muted small">El modo ligero quita el desenfoque y las animaciones del fondo. Úsalo si tu teléfono va lento o quieres ahorrar batería.</p>
+        <div class="row">
+          <button class="btn ghost" type="button" data-liteopt="off">Normal</button>
+          <button class="btn ghost" type="button" data-liteopt="on">Modo ligero</button>
+        </div>
+      </div>
+      <div class="glass card" style="margin-bottom:14px">
+        <div class="brandrow"><img class="logo" src="/icons/icon.svg" alt="" width="44" height="44"><h2 style="margin:0">Instalar la app</h2></div>
+        <p class="muted" id="installText" style="margin-top:10px"></p>
+        <button class="btn" type="button" id="btnInstall" hidden>Instalar app</button>
+      </div>
       <div class="glass card">
         <h2>Tu cuenta</h2>
         <p class="muted" id="accName"></p>
@@ -112,7 +160,8 @@
 
     <nav class="dock glass" id="dock" aria-label="Secciones">
       <div class="tabs" id="dockTabs" role="tablist">
-        <button class="tab" role="tab" data-tab="decks" aria-selected="true" type="button">Mazos</button>
+        <button class="tab" role="tab" data-tab="today" aria-selected="true" type="button">Hoy</button>
+        <button class="tab" role="tab" data-tab="path" aria-selected="false" type="button">Ruta</button>
         <button class="tab" role="tab" data-tab="progress" aria-selected="false" type="button">Progreso</button>
         <button class="tab" role="tab" data-tab="report" aria-selected="false" type="button">Informe</button>
         <button class="tab" role="tab" data-tab="account" aria-selected="false" type="button">Cuenta</button>
@@ -123,8 +172,8 @@
   <!-- ===== Estudio ===== -->
   <section id="study" hidden>
     <div class="row" style="justify-content:space-between;margin-bottom:6px">
-      <button class="btn ghost sm" type="button" id="btnBack">Volver a mis mazos</button>
-      <button class="btn ghost sm themebtn" type="button">Modo claro</button>
+      <button class="btn ghost sm" type="button" id="btnBack">Volver</button>
+      <button class="btn ghost sm themebtn" type="button">Oscuro</button>
     </div>
     <div id="studyArea"></div>
   </section>
@@ -132,16 +181,34 @@
 </main>
 
 <script src="/common.js"></script>
+<script src="/speech.js"></script>
 <script>
 let user = null, config = {inviteRequired: false, registrationClosed: false}, mode = 'login';
-let authTabs = null, dockTabs = null, decksCache = [];
+let authTabs = null, dockTabs = null, decksCache = [], todayData = null, pathData = null, todayUnit = null;
+let pathState = {level: null, unitId: null};
+let S = null;   // sesión de tarjetas o ejercicios
+let R = null;   // sesión de lectura
+let spList = []; // reproductores de voz activos
+
+const KIND_LABEL = {cards: 'Tarjetas', exercises: 'Ejercicios', lesson: 'Lección', reading: 'Lectura', writing: 'Escritura'};
+const KIND_TAG = {cards: '', exercises: 'ex', lesson: 'warm', reading: '', writing: 'warm'};
+const ACTION_LABEL = {cards: 'Estudiar', exercises: 'Practicar', lesson: 'Leer', reading: 'Leer', writing: 'Escribir'};
+const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const fmt = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+const newPerDay = () => { const v = lsGet('newPerDay'); return v === null ? 5 : (Number(v) || 0); };
+const unitLabel = u => u.level + '.' + u.number;
+const clip = (text, n) => text.trim().split(/\s+/).slice(0, n).join(' ');
 
 /* ---------- vistas ---------- */
+function destroySpeech() { spList.forEach(x => { try { x.destroy(); } catch (e) { /* */ } }); spList = []; }
 function show(id) {
+  destroySpeech();
   ['auth', 'home', 'study'].forEach(v => { $(v).hidden = v !== id; });
   const el = $(id); replay(el, 'enter'); window.scrollTo(0, 0);
   if (id === 'home' && dockTabs) dockTabs.refresh();
   if (id === 'auth' && authTabs) authTabs.refresh();
+  if (id !== 'study' && 'speechSynthesis' in window) speechSynthesis.cancel();
 }
 function showAuth() { user = null; show('auth'); setMode('login'); $('password').value = ''; $('username').focus(); }
 window.onAuthLost = showAuth;
@@ -169,21 +236,34 @@ $('authForm').addEventListener('submit', async e => {
   } catch (err) { msg.className = 'msg bad'; msg.textContent = err.message; replay($('authForm'), 'shake'); }
   $('authSubmit').disabled = false;
 });
-
 async function enterApp() {
   if (user.is_admin) { location.href = '/admin'; return; } // las cuentas de administración van a su panel
   await loadHome();
 }
 
+/* ---------- unidad actual ---------- */
+function allUnits() { return pathData ? pathData.personal.concat(...pathData.levels.map(l => l.units)) : []; }
+const unitDone = u => u.total > 0 && u.done >= u.total;
+function currentUnit() {
+  const all = allUnits();
+  if (!all.length) return null;
+  const saved = all.find(u => u.id === lsGet('unit:' + user.id));
+  if (saved && !unitDone(saved)) return saved;
+  return all.find(u => u.id === pathData.recommendedUnitId) || saved || null;
+}
+function setCurrentUnit(id) { lsSet('unit:' + user.id, id); }
+
 /* ---------- inicio ---------- */
 async function loadHome() {
   const t = today();
-  const np = lsGet('newPerDay'); if (np !== null) $('newPerDay').value = String(np);
-  const [d, s, n] = await Promise.all([api('/api/decks?today=' + t), api('/api/stats?today=' + t), api('/api/note?day=' + t)]);
-  decksCache = d.decks;
+  const [d, s, n, pth] = await Promise.all([api('/api/decks?today=' + t), api('/api/stats?today=' + t), api('/api/note?day=' + t), api('/api/path')]);
+  decksCache = d.decks; pathData = pth;
+  todayUnit = currentUnit();
+  todayData = await api('/api/today?today=' + t + '&new=' + newPerDay() + (todayUnit ? '&unit=' + todayUnit.id : ''));
   $('hello').textContent = 'Hola, ' + user.username;
+  $('helloSub').textContent = 'Un paso a la vez: lee, practica, habla, escribe y cierra el día.';
   $('accName').textContent = 'Sesión iniciada como ' + user.username + '.';
-  renderDecks(); renderStats(s);
+  renderToday(); renderPath(); renderStats(s);
   $('note').value = n.text;
   $('repDay').href = '/api/report?period=day&date=' + t;
   $('repWeek').href = '/api/report?period=week&date=' + t;
@@ -192,7 +272,7 @@ async function loadHome() {
 }
 function currentPanel() {
   const p = Array.from(document.querySelectorAll('#home .panel')).find(x => !x.hidden);
-  return p ? p.dataset.panel : 'decks';
+  return p ? p.dataset.panel : 'today';
 }
 function showPanel(name) {
   document.querySelectorAll('#home .panel').forEach(p => {
@@ -201,9 +281,182 @@ function showPanel(name) {
     if (on) replay(p, 'enter');
   });
   if (name === 'progress') animateBars();
+  if (name === 'path') animateProgress();
+  window.scrollTo(0, 0);
 }
-$('newPerDay').onchange = () => { lsSet('newPerDay', Number($('newPerDay').value)); renderDecks(); };
+async function goHome(panel) { await loadHome(); if (panel) dockTabs.select(panel); }
 
+/* ---------- Hoy: el orden del día ---------- */
+function buildSteps(t) {
+  const c = t.cards;
+  const steps = [];
+  // 1. Repaso espaciado
+  steps.push({
+    title: 'Repaso espaciado', avail: c.decks > 0, done: c.decks > 0 && c.due === 0,
+    desc: c.due > 0 ? plural(c.due, 'tarjeta por repasar', 'tarjetas por repasar') + '. Repasa lo anterior antes de ver algo nuevo.'
+      : c.reviewedToday > 0 ? 'Repasaste ' + plural(c.reviewedToday, 'tarjeta', 'tarjetas') + ' hoy. Estás al día.'
+      : c.decks > 0 ? 'No tienes nada por repasar hoy.' : 'Todavía no hay tarjetas.',
+    actions: c.due > 0 && c.dueDeck ? [{label: 'Repasar', act: 'study', id: c.dueDeck}] : []
+  });
+  // 2. Tema nuevo (lección o palabras nuevas de tu unidad)
+  const where = todayUnit ? ' de ' + unitLabel(todayUnit) : '';
+  if (t.lesson.doneToday) steps.push({title: 'Tema nuevo', avail: true, done: true, desc: 'Leíste «' + t.lesson.todayTitle + '» hoy.', actions: []});
+  else if (t.lesson.next) steps.push({title: 'Tema nuevo', avail: true, done: false, desc: 'Lección: «' + t.lesson.next.title + '». Léela primero y practica después.', actions: [{label: 'Leer lección', act: 'study', id: t.lesson.next.id}]});
+  else if (c.newAvail > 0) steps.push({title: 'Tema nuevo', avail: true, done: false, desc: plural(c.newAvail, 'palabra nueva', 'palabras nuevas') + where + ' para hoy.', actions: c.newDeck ? [{label: 'Aprender', act: 'study', id: c.newDeck}] : []});
+  else if (c.newToday > 0) steps.push({title: 'Tema nuevo', avail: true, done: true, desc: 'Aprendiste ' + plural(c.newToday, 'palabra nueva', 'palabras nuevas') + ' hoy.', actions: []});
+  else steps.push({title: 'Tema nuevo', avail: false, done: false, desc: 'Todavía no hay lecciones ni palabras nuevas.', actions: []});
+  // 3. Hablar o escribir (cualquiera de las dos cuenta)
+  const spoke = t.speakingToday || 0;
+  const canSpeak = c.decks > 0 || t.lesson.total > 0;
+  if (t.writing.doneToday || spoke >= 3) {
+    const bits = [];
+    if (t.writing.doneToday) bits.push('Escribiste «' + t.writing.todayTitle + '».');
+    if (spoke) bits.push('Practicaste tu pronunciación ' + plural(spoke, 'vez', 'veces') + '.');
+    steps.push({title: 'Hablar o escribir', avail: true, done: true, desc: bits.join(' ') + ' Producir es lo que más rápido fija lo aprendido.', actions: []});
+  } else if (t.writing.next || canSpeak) {
+    const acts = [];
+    if (canSpeak) acts.push({label: 'Hablar', act: 'speak'});
+    if (t.writing.next) acts.push({label: 'Escribir', act: 'study', id: t.writing.next.id, ghost: true});
+    steps.push({title: 'Hablar o escribir', avail: true, done: false,
+      desc: (spoke ? 'Llevas ' + plural(spoke, 'frase hablada', 'frases habladas') + ' (con 3 basta). ' : '') + 'Practica tu pronunciación en voz alta' + (t.writing.next ? ' o escribe la tarea «' + t.writing.next.title + '»' : '') + '.', actions: acts});
+  } else steps.push({title: 'Hablar o escribir', avail: false, done: false, desc: 'Todavía no hay frases ni tareas de escritura.', actions: []});
+  // 4. Leer contenido real
+  if (t.reading.doneToday) steps.push({title: 'Leer y escuchar', avail: true, done: true, desc: 'Completaste «' + t.reading.todayTitle + '» hoy.', actions: []});
+  else if (t.reading.next) steps.push({title: 'Leer y escuchar', avail: true, done: false, desc: 'Lectura: «' + t.reading.next.title + '». Léela, escúchala y responde las preguntas.', actions: [{label: 'Leer', act: 'study', id: t.reading.next.id}]});
+  else steps.push({title: 'Leer y escuchar', avail: false, done: false, desc: 'Todavía no hay lecturas.', actions: []});
+  // 5. Cierre
+  steps.push({
+    title: 'Cierre del día', avail: true, done: t.note,
+    desc: t.note ? 'Ya anotaste cómo te fue hoy.' : 'Anota cómo te fue, qué error repetiste y qué harás mañana.',
+    actions: t.note ? [] : [{label: 'Escribir nota', act: 'goto', panel: 'progress'}]
+  });
+  return steps;
+}
+function renderToday() {
+  if (!todayData) return;
+  const steps = buildSteps(todayData);
+  const avail = steps.filter(s => s.avail), done = avail.filter(s => s.done).length;
+  const dateStr = new Date().toLocaleDateString('es', {weekday: 'long', day: 'numeric', month: 'long'});
+  $('todaySub').textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+  $('todayCount').textContent = done + '/' + avail.length;
+  requestAnimationFrame(() => { $('todayMeter').style.width = (avail.length ? Math.round(done * 100 / avail.length) : 0) + '%'; });
+  $('unitChip').innerHTML = todayUnit
+    ? '<div class="unitchip glass"><div class="t"><div class="tiny muted">Tu unidad actual</div><b>' + esc(unitLabel(todayUnit)) + ' · ' + esc(todayUnit.title) + '</b></div><button class="btn ghost sm" type="button" data-act="gopath">Cambiar</button></div>'
+    : '';
+  const el = $('steps');
+  el.innerHTML = steps.map((s, i) =>
+    '<article class="step glass ' + (!s.avail ? 'na' : s.done ? 'done' : 'todo') + '">' +
+    '<div class="stepnum">' + (s.done ? CHECK : (i + 1)) + '</div>' +
+    '<div class="grow"><h3>' + esc(s.title) + '</h3><p class="muted small">' + esc(s.desc) + '</p></div>' +
+    s.actions.map(a => '<button class="btn sm ' + (a.ghost ? 'ghost' : '') + '" type="button" data-act="' + a.act + '"' + (a.id ? ' data-id="' + a.id + '"' : '') + (a.panel ? ' data-panel-go="' + a.panel + '"' : '') + '>' + esc(a.label) + '</button>').join('') +
+    '</article>').join('');
+  stagger(el);
+  $('allset').innerHTML = avail.length && done === avail.length ? '<div class="glass allset">Día completo. Buen trabajo: mañana seguimos.</div>' : '';
+}
+$('home').addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  if (b.dataset.act === 'goto') { dockTabs.select(b.dataset.panelGo); setTimeout(() => $('note').focus({preventScroll: true}), 250); }
+  if (b.dataset.act === 'gopath') { pathState.unitId = null; renderPath(); dockTabs.select('path'); }
+  if (b.dataset.act === 'speak') startSpeaking().catch(err => { if (err.message !== 'auth') toast(err.message, 'bad'); });
+});
+
+/* ---------- Ruta: niveles y unidades ---------- */
+function deckRow(d) {
+  const meta = d.kind === 'cards' ? plural(d.total, 'tarjeta', 'tarjetas') + ' · ' + d.due + ' por repasar · ' + d.fresh + ' sin empezar'
+    : d.kind === 'exercises' ? plural(d.total, 'ejercicio', 'ejercicios')
+    : d.kind === 'lesson' ? (d.times ? 'Leída ' + plural(d.times, 'vez', 'veces') + ' · última: ' + d.last_day : 'Sin leer')
+    : d.kind === 'reading' ? plural(d.total, 'pregunta', 'preguntas') + (d.times && d.score_total ? ' · último resultado ' + d.score_ok + '/' + d.score_total : '')
+    : (d.times ? plural(d.times, 'texto guardado', 'textos guardados') + ' · último: ' + d.last_day : 'Sin textos todavía');
+  return '<article class="deck glass"><div><h3>' + esc(d.title) + '<span class="tag ' + KIND_TAG[d.kind] + '">' + KIND_LABEL[d.kind] + '</span></h3>' +
+    '<div class="muted small">' + esc(meta) + '</div></div>' +
+    '<button class="btn" data-act="study" data-id="' + d.id + '">' + ACTION_LABEL[d.kind] + '</button></article>';
+}
+function unitCard(u, recId) {
+  const pct = u.total ? Math.round(u.done * 100 / u.total) : 0;
+  const tag = unitDone(u) ? '<span class="tag done">Completada</span>' : (u.id === recId ? '<span class="tag rec">Recomendada</span>' : '');
+  return '<button class="unit glass" type="button" data-unit="' + u.id + '"><div class="utop"><span class="num">' + esc(unitLabel(u)) + '</span><h3>' + esc(u.title) + tag + '</h3></div>' +
+    (u.description ? '<p class="muted small">' + esc(u.description) + '</p>' : '') +
+    '<div class="progress ' + (unitDone(u) ? 'full' : '') + '" aria-label="Avance"><i data-w="' + pct + '"></i></div>' +
+    '<div class="tiny muted" style="margin-top:6px">' + u.done + ' de ' + u.total + ' mazos hechos</div></button>';
+}
+function animateProgress() {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('#pathView .progress i').forEach(i => { i.style.width = i.dataset.w + '%'; });
+  }));
+}
+function renderPath() {
+  const el = $('pathView');
+  if (!pathData) return;
+  if (pathState.unitId) {
+    const u = allUnits().find(x => x.id === pathState.unitId);
+    if (!u) pathState.unitId = null; else return renderUnitView(el, u);
+  }
+  const recId = pathData.recommendedUnitId;
+  const cur = todayUnit;
+  const loose = decksCache.filter(d => !d.unit_id);
+  const hasUnits = allUnits().length > 0;
+  if (!hasUnits && !loose.length) {
+    el.innerHTML = '<div class="empty">Todavía no hay contenido disponible. Cuando la administración publique unidades, aparecerán aquí.</div>';
+    return;
+  }
+  const levels = pathData.levels;
+  if (!pathState.level || !levels.some(l => l.level === pathState.level)) {
+    pathState.level = (pathData.level && levels.some(l => l.level === pathData.level)) ? pathData.level
+      : (cur && levels.some(l => l.level === cur.level && cur.audience === 'general') ? cur.level : (levels[0] ? levels[0].level : null));
+  }
+  let html = '<div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">Tu ruta</h2>' +
+    '<div class="row"><label for="newPerDay" class="small muted" style="margin:0;font-weight:400">Palabras nuevas por día</label>' +
+    '<select id="newPerDay" aria-label="Tarjetas nuevas por día"><option>0</option><option>3</option><option>5</option><option>10</option><option>15</option><option>20</option></select></div></div>';
+  if (cur) html += '<div class="unitchip glass"><div class="t"><div class="tiny muted">Tu unidad actual</div><b>' + esc(unitLabel(cur)) + ' · ' + esc(cur.title) + '</b></div><button class="btn sm" type="button" data-unit="' + cur.id + '">Continuar</button></div>';
+  if (pathData.personal.length) {
+    html += '<div class="sectionlabel">Tu plan personalizado</div><div class="stack stagger">' + pathData.personal.map(u => unitCard(u, recId)).join('') + '</div>';
+  }
+  if (levels.length) {
+    html += '<div class="sectionlabel">Ruta general</div><div class="levels" role="group" aria-label="Nivel">' +
+      levels.map(l => '<button class="lvl" type="button" data-level="' + l.level + '" aria-pressed="' + (l.level === pathState.level) + '">' + l.level + '</button>').join('') + '</div>' +
+      '<p class="muted small hint-line">El nivel que elijas se usa para recomendarte la siguiente unidad.</p>' +
+      '<div class="stack stagger">' + levels.find(l => l.level === pathState.level).units.map(u => unitCard(u, recId)).join('') + '</div>';
+  }
+  if (loose.length) html += '<div class="sectionlabel">Otros mazos</div><div class="stack stagger">' + loose.map(deckRow).join('') + '</div>';
+  el.innerHTML = html;
+  el.querySelectorAll('.stagger').forEach(stagger);
+  const sel = $('newPerDay'); const np = lsGet('newPerDay'); sel.value = String(np === null ? 5 : np);
+  sel.onchange = () => { lsSet('newPerDay', Number(sel.value)); loadHome().catch(() => {}); };
+  animateProgress();
+}
+function renderUnitView(el, u) {
+  const decks = decksCache.filter(d => d.unit_id === u.id);
+  const pct = u.total ? Math.round(u.done * 100 / u.total) : 0;
+  const isCur = todayUnit && todayUnit.id === u.id;
+  el.innerHTML = '<div class="backlink"><button class="btn ghost sm" type="button" data-act="unitback">← Ruta</button></div>' +
+    '<div class="unithead glass"><div class="tiny muted">' + esc(unitLabel(u)) + (u.audience === 'personal' ? ' · plan personalizado' : '') + '</div><h2>' + esc(u.title) + '</h2>' +
+    (u.description ? '<p class="muted">' + esc(u.description) + '</p>' : '') +
+    '<div class="progress ' + (unitDone(u) ? 'full' : '') + '"><i data-w="' + pct + '"></i></div>' +
+    '<div class="tiny muted" style="margin:6px 0 10px">' + u.done + ' de ' + u.total + ' mazos hechos</div>' +
+    (isCur ? '<span class="tag rec" style="margin:0">Es tu unidad actual</span>' : '<button class="btn sm" type="button" data-act="setcurrent" data-id="' + u.id + '">Hacer de esta mi unidad actual</button>') + '</div>' +
+    '<div class="stack stagger">' + (decks.length ? decks.map(deckRow).join('') : '<div class="empty">Esta unidad todavía no tiene mazos.</div>') + '</div>';
+  el.querySelectorAll('.stagger').forEach(stagger);
+  animateProgress();
+}
+$('pathView').addEventListener('click', async e => {
+  const un = e.target.closest('[data-unit]');
+  if (un) { pathState.unitId = Number(un.dataset.unit); renderPath(); window.scrollTo(0, 0); return; }
+  const lv = e.target.closest('[data-level]');
+  if (lv) {
+    pathState.level = lv.dataset.level; renderPath();
+    try { await api('/api/level', {method: 'PUT', body: {level: pathState.level}}); pathData.level = pathState.level; } catch (err) { /* */ }
+    return;
+  }
+  const b = e.target.closest('[data-act]');
+  if (b && b.dataset.act === 'unitback') { pathState.unitId = null; renderPath(); }
+  if (b && b.dataset.act === 'setcurrent') { setCurrentUnit(Number(b.dataset.id)); todayUnit = allUnits().find(u => u.id === Number(b.dataset.id)); toast('Unidad actual cambiada.', 'good'); await loadHome(); dockTabs.select('path'); }
+});
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-act="study"]'); if (!b) return;
+  try { await startStudy(Number(b.dataset.id)); } catch (err) { if (err.message !== 'auth') toast(err.message, 'bad'); }
+});
+
+/* ---------- Progreso ---------- */
 function renderStats(s) {
   const pct = s.week.total ? Math.round(s.week.ok * 100 / s.week.total) : null;
   $('tiles').innerHTML =
@@ -225,37 +478,6 @@ function animateBars() {
   }));
 }
 
-function renderDecks() {
-  const el = $('decks');
-  const np = Number($('newPerDay').value) || 0;
-  if (!decksCache.length) {
-    el.innerHTML = '<div class="empty">Todavía no hay mazos disponibles. Cuando la administración publique contenido, aparecerá aquí.</div>';
-    $('banner').innerHTML = '<div><b>Todo tranquilo</b><div class="muted">Aún no hay mazos publicados.</div></div>';
-    return;
-  }
-  let pending = 0, first = null;
-  decksCache.forEach(d => {
-    d.pending = d.kind === 'cards' ? d.due + Math.min(d.fresh, np) : 0;
-    pending += d.pending;
-    if (!first && d.pending > 0) first = d;
-  });
-  $('banner').innerHTML = pending
-    ? '<div><b>' + pending + ' ' + (pending === 1 ? 'tarjeta' : 'tarjetas') + ' para hoy</b><div class="muted">Repaso y palabras nuevas, por mazo.</div></div><button class="btn" data-act="study" data-id="' + first.id + '">Empezar con «' + esc(first.title) + '»</button>'
-    : '<div><b>Estás al día</b><div class="muted">No te queda nada pendiente. Puedes practicar los ejercicios cuando quieras.</div></div>';
-  el.innerHTML = decksCache.map(d => {
-    const isCards = d.kind === 'cards';
-    const meta = isCards ? d.total + ' tarjetas · ' + d.due + ' por repasar · ' + d.fresh + ' sin empezar' : d.total + ' ejercicios';
-    return '<article class="deck glass"><div><h3>' + esc(d.title) + '<span class="tag ' + (isCards ? '' : 'ex') + '">' + (isCards ? 'Tarjetas' : 'Ejercicios') + '</span></h3>' +
-      '<div class="muted small">' + meta + '</div></div>' +
-      '<button class="btn" data-act="study" data-id="' + d.id + '">Estudiar</button></article>';
-  }).join('');
-  stagger(el);
-}
-document.addEventListener('click', async e => {
-  const b = e.target.closest('button[data-act="study"]'); if (!b) return;
-  try { await startStudy(Number(b.dataset.id)); } catch (err) { if (err.message !== 'auth') toast(err.message, 'bad'); }
-});
-
 /* ---------- informe, nota, contraseña, salir ---------- */
 $('btnCopyWeek').onclick = async () => {
   try {
@@ -269,7 +491,11 @@ let noteTimer = null;
 $('note').addEventListener('input', () => {
   clearTimeout(noteTimer); $('noteMsg').textContent = '';
   noteTimer = setTimeout(async () => {
-    try { await api('/api/note', {method: 'PUT', body: {day: today(), text: $('note').value}}); $('noteMsg').textContent = 'Guardado.'; } catch (e) { /* */ }
+    try {
+      await api('/api/note', {method: 'PUT', body: {day: today(), text: $('note').value}});
+      $('noteMsg').textContent = 'Guardado.';
+      if (todayData) { todayData.note = $('note').value.trim().length > 0; renderToday(); }
+    } catch (e) { /* */ }
   }, 700);
 });
 $('pwForm').addEventListener('submit', async e => {
@@ -281,15 +507,215 @@ $('pwForm').addEventListener('submit', async e => {
 });
 $('btnLogout').onclick = async () => { try { await api('/api/logout', {method: 'POST'}); } catch (e) { /* */ } showAuth(); };
 
-/* ---------- estudio ---------- */
-let S = null;
-async function startStudy(id) {
-  const np = Number($('newPerDay').value) || 0;
-  const data = await api('/api/decks/' + id + '/queue?today=' + today() + '&new=' + np);
-  S = {id, kind: data.kind, title: data.title, queue: data.items.slice(), cur: null, phase: 'answer', failed: new Set(), mastered: new Set(), ok: 0, bad: 0, total: data.items.length};
-  show('study'); nextItem();
+/* ---------- práctica de voz: ayudas ---------- */
+function mountSpeech(slot, target, deckId, onScore) {
+  const inst = Speech.mount(slot, {target, deckId, onScore});
+  spList.push(inst); return inst;
 }
-function nextItem() { S.cur = S.queue.shift() || null; S.phase = 'answer'; renderStudy(); }
+function toggleSpeech(slot, target, deckId) {
+  if (slot.dataset.open === '1') { slot.dataset.open = ''; slot.innerHTML = ''; slot.classList.remove('sp'); destroySpeech(); return; }
+  destroySpeech();
+  document.querySelectorAll('[data-open="1"]').forEach(s => { s.dataset.open = ''; s.innerHTML = ''; s.classList.remove('sp'); });
+  slot.dataset.open = '1';
+  mountSpeech(slot, target, deckId);
+  slot.scrollIntoView({block: 'nearest', behavior: reduceMotion() ? 'auto' : 'smooth'});
+}
+
+/* ---------- estudio: elegir el visor según el tipo ---------- */
+async function startStudy(id) {
+  const dk = decksCache.find(d => d.id === id);
+  if (dk && dk.unit_id) setCurrentUnit(dk.unit_id);
+  const data = await api('/api/decks/' + id + '/queue?today=' + today() + '&new=' + newPerDay());
+  S = null; R = null;
+  show('study');
+  if (data.kind === 'lesson') return showLesson(data);
+  if (data.kind === 'reading') return startReading(data);
+  if (data.kind === 'writing') return showWriting(data);
+  S = {id, kind: data.kind, title: data.title, queue: data.items.slice(), cur: null, phase: 'answer', failed: new Set(), mastered: new Set(), ok: 0, bad: 0, total: data.items.length};
+  nextItem();
+}
+$('btnBack').onclick = () => { S = null; R = null; goHome().catch(() => {}); };
+$('studyArea').addEventListener('click', e => {
+  const say = e.target.closest('[data-say]');
+  if (say) speak(say.dataset.say);
+  const rec = e.target.closest('[data-sayrec]');
+  if (rec) {
+    const slot = rec.closest('.exm').querySelector('.spslot');
+    toggleSpeech(slot, rec.dataset.sayrec, Number(rec.dataset.deck) || null);
+  }
+});
+function speakList(list) {
+  if (!('speechSynthesis' in window)) { toast('Tu navegador no tiene voz para leer en voz alta.', 'bad'); return false; }
+  speechSynthesis.cancel();
+  list.forEach(p => { const u = new SpeechSynthesisUtterance(p); u.lang = 'en-US'; u.rate = 0.85; speechSynthesis.speak(u); });
+  return true;
+}
+
+/* ---------- hablar: frases para practicar la pronunciación ---------- */
+async function startSpeaking() {
+  const data = await api('/api/phrases?n=5' + (todayUnit ? '&unit=' + todayUnit.id : ''));
+  S = null; R = null; show('study');
+  if (!data.phrases.length) {
+    $('studyArea').innerHTML = '<div class="done glass enter" style="margin-top:22px"><h2>Aún no hay frases</h2><p class="muted">Cuando haya tarjetas o lecciones con ejemplos, aquí podrás practicar tu pronunciación.</p></div>';
+    return;
+  }
+  const best = new Array(data.phrases.length).fill(0);
+  $('studyArea').innerHTML = '<div class="meta"><span>Pronunciación</span><span id="spCount">0 de ' + data.phrases.length + ' con buena nota</span></div>' +
+    '<p class="muted small" style="margin:6px 0 12px">Escucha el modelo, grábate diciendo la frase y mira tu nota. Es una nota aproximada: depende de lo que entienda tu navegador.</p>' +
+    '<div class="stack stagger" id="phrases">' + data.phrases.map((p, i) =>
+      '<article class="glass phrase"><p class="en">' + esc(p.text) + '</p>' + (p.es ? '<p class="es">' + esc(p.es) + '</p>' : '') + '<div id="ph' + i + '"></div></article>').join('') + '</div>' +
+    '<div class="row" style="margin-top:16px"><button class="btn" type="button" id="btnSpDone">Ir a mi día</button></div>';
+  stagger($('phrases'));
+  data.phrases.forEach((p, i) => {
+    mountSpeech($('ph' + i), p.text, p.deckId, score => {
+      best[i] = Math.max(best[i], score);
+      $('spCount').textContent = best.filter(x => x >= 70).length + ' de ' + best.length + ' con buena nota';
+    });
+  });
+  $('btnSpDone').onclick = () => goHome('today').catch(() => {});
+}
+
+/* ---------- lección ---------- */
+function showLesson(d) {
+  const blocks = d.blocks.map(b => {
+    if (b.t === 'h') return '<h3 class="lh">' + fmt(b.text) + '</h3>';
+    if (b.t === 'p') return '<p>' + fmt(b.text) + '</p>';
+    if (b.t === 'ul') return '<ul>' + b.items.map(x => '<li>' + fmt(x) + '</li>').join('') + '</ul>';
+    if (b.t === 'ex') return '<div class="exm"><div class="en"><span>' + fmt(b.en) + '</span><span class="row" style="flex-wrap:nowrap"><button class="btn ghost sm" type="button" data-say="' + esc(b.en) + '">Escuchar</button><button class="btn ghost sm" type="button" data-sayrec="' + esc(b.en) + '" data-deck="' + d.deckId + '">Pronunciar</button></span></div>' + (b.es ? '<div class="tr">' + fmt(b.es) + '</div>' : '') + '<div class="spslot"></div></div>';
+    if (b.t === 'note') return '<div class="callout">' + fmt(b.text) + '</div>';
+    return '';
+  }).join('');
+  $('studyArea').innerHTML =
+    '<div class="meta"><span>' + esc(d.title) + '</span><span>Lección</span></div>' +
+    '<article class="glass card lesson card-in" style="margin-top:8px">' + blocks +
+    '<div id="lessonEnd" class="row" style="margin-top:20px"><button class="btn" id="btnRead" type="button">' + (d.readToday ? 'Marcar otra vez como leída' : 'Marcar como leída') + '</button></div></article>';
+  $('btnRead').onclick = async () => {
+    $('btnRead').disabled = true;
+    try {
+      await api('/api/complete', {method: 'POST', body: {deckId: d.deckId, kind: 'lesson', today: today()}});
+      $('lessonEnd').innerHTML = '<div class="callout" style="width:100%;margin:0">Lección leída. Ahora practica lo que viste con los ejercicios y las tarjetas.</div>' +
+        '<button class="btn" id="btnToToday" type="button">Ir a mi día</button>';
+      $('btnToToday').onclick = () => goHome('today').catch(() => {});
+      toast('Lección marcada como leída.', 'good');
+    } catch (err) { $('btnRead').disabled = false; if (err.message !== 'auth') toast(err.message, 'bad'); }
+  };
+}
+
+/* ---------- lectura con preguntas ---------- */
+function startReading(d) { R = {d, stage: 'text', idx: 0, ok: 0, answered: false}; renderReading(); }
+function readingText() { return R.d.paragraphs.map(p => '<p>' + fmt(p) + '</p>').join(''); }
+function renderReading() {
+  destroySpeech();
+  const d = R.d, area = $('studyArea');
+  const n = d.questions.length;
+  if (R.stage === 'text') {
+    area.innerHTML =
+      '<div class="meta"><span>' + esc(d.title) + '</span><span>Lectura</span></div>' +
+      '<article class="glass card card-in" style="margin-top:8px"><div class="readtext">' + readingText() + '</div>' +
+      '<p class="muted small">Léela con calma. Escúchala y, si quieres, practica leyendo en voz alta. Luego responde ' + plural(n, 'pregunta', 'preguntas') + '.</p>' +
+      '<div class="row" style="margin-top:12px"><button class="btn ghost" type="button" id="btnTts">Escuchar texto</button><button class="btn ghost" type="button" id="btnReadAloud">Leer en voz alta</button><button class="btn" type="button" id="btnToQ">Ir a las preguntas</button></div>' +
+      '<div id="rdSlot"></div></article>';
+    $('btnTts').onclick = () => { speakList(d.paragraphs); };
+    $('btnReadAloud').onclick = () => toggleSpeech($('rdSlot'), clip(d.paragraphs[0], 25), d.deckId);
+    $('btnToQ').onclick = () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); R.stage = 'q'; renderReading(); };
+    return;
+  }
+  if (R.stage === 'q') {
+    const q = d.questions[R.idx];
+    R.answered = false;
+    area.innerHTML =
+      '<div class="meta"><span>' + esc(d.title) + '</span><span>Pregunta ' + (R.idx + 1) + ' de ' + n + '</span></div>' +
+      '<div class="meter" aria-hidden="true"><i style="width:' + Math.round(R.idx * 100 / n) + '%"></i></div>' +
+      '<article class="glass card card-in" id="qcard"><details class="soft"><summary>Ver el texto</summary><div class="readtext">' + readingText() + '</div></details>' +
+      '<p class="sentence" style="font-size:21px;margin-bottom:14px">' + fmt(q.q) + '</p>' +
+      '<div class="options" id="opts">' + q.options.map((o, i) => '<button class="option" type="button" data-i="' + i + '">' + esc(o) + '</button>').join('') + '</div>' +
+      '<div id="fb"></div></article>';
+    return;
+  }
+  const pct = Math.round(R.ok * 100 / n);
+  area.innerHTML = '<div class="done glass enter" style="margin-top:22px"><h2>Lectura terminada</h2>' +
+    '<p style="font-size:20px"><b>' + R.ok + ' de ' + n + '</b> respuestas correctas (' + pct + ' %).</p>' +
+    '<p class="muted">' + (pct >= 80 ? 'Muy bien: entendiste lo esencial del texto.' : 'Vuelve a leer el texto y fíjate en las palabras que no conocías; luego inténtalo otra vez.') + '</p>' +
+    '<div class="row" style="margin-top:12px"><button class="btn" id="btnToToday" type="button">Ir a mi día</button><button class="btn ghost" id="btnRetry" type="button">Leer otra vez</button></div></div>';
+  $('btnToToday').onclick = () => goHome('today').catch(() => {});
+  $('btnRetry').onclick = () => startStudy(d.deckId).catch(e => toast(e.message, 'bad'));
+}
+$('studyArea').addEventListener('click', async e => {
+  const opt = e.target.closest('.option'); if (!opt || !R || R.stage !== 'q' || R.answered) return;
+  R.answered = true;
+  const q = R.d.questions[R.idx];
+  const choice = q.options[Number(opt.dataset.i)];
+  document.querySelectorAll('#opts .option').forEach(b => { b.disabled = true; });
+  let r;
+  try { r = await api('/api/answer', {method: 'POST', body: {itemId: q.id, choice, today: today()}}); }
+  catch (err) { R.answered = false; document.querySelectorAll('#opts .option').forEach(b => { b.disabled = false; }); if (err.message !== 'auth') toast(err.message, 'bad'); return; }
+  if (r.correct) R.ok++;
+  opt.classList.add(r.correct ? 'good' : 'bad');
+  if (!r.correct) document.querySelectorAll('#opts .option').forEach(b => { if (b.textContent === r.expected) b.classList.add('good'); });
+  replay($('qcard'), r.correct ? 'ring' : 'shake');
+  const last = R.idx === R.d.questions.length - 1;
+  $('fb').innerHTML = '<div class="feedback ' + (r.correct ? '' : 'bad') + '"><strong>' + (r.correct ? 'Correcto' : 'Casi. La respuesta es: ' + esc(r.expected)) + '</strong>' +
+    (r.why ? '<p>' + esc(r.why) + '</p>' : '') +
+    '<div class="row" style="margin-top:12px"><button class="btn" id="btnNextQ" type="button">' + (last ? 'Ver resultado' : 'Siguiente') + '</button></div></div>';
+  $('btnNextQ').onclick = async () => {
+    if (last) {
+      try { await api('/api/complete', {method: 'POST', body: {deckId: R.d.deckId, kind: 'reading', ok: R.ok, total: R.d.questions.length, today: today()}}); }
+      catch (err) { if (err.message !== 'auth') toast('No pude guardar el resultado: ' + err.message, 'bad'); }
+      R.stage = 'done';
+    } else R.idx++;
+    renderReading();
+  };
+  setTimeout(() => { const b = $('btnNextQ'); if (b) b.focus({preventScroll: true}); }, 60);
+});
+
+/* ---------- escritura ---------- */
+const countWords = t => t.trim().split(/\s+/).filter(Boolean).length;
+function showWriting(d) {
+  const key = 'draft:' + d.deckId;
+  const draft = lsGet(key) || '';
+  const hist = d.history.length
+    ? '<details class="soft"><summary>Tus textos anteriores (' + d.history.length + ')</summary><ul class="history">' + d.history.map(h => '<li><b>' + esc(h.day) + '</b> · ' + h.words + ' palabras<br>' + esc(h.text) + '</li>').join('') + '</ul></details>' : '';
+  $('studyArea').innerHTML =
+    '<div class="meta"><span>' + esc(d.title) + '</span><span>Escritura</span></div>' +
+    '<article class="glass card card-in" style="margin-top:8px" id="wcard">' +
+    d.prompt.map(p => '<p style="font-size:19px;margin:0 0 10px">' + fmt(p) + '</p>').join('') +
+    d.tips.map(t => '<div class="callout">' + fmt(t) + '</div>').join('') + hist +
+    '<label for="wtext">Tu texto</label><textarea id="wtext" class="writebox" autocomplete="off" spellcheck="true" placeholder="Escribe en inglés. No importa si hay errores: de eso aprendes."></textarea>' +
+    '<div class="wc" id="wc"></div>' +
+    '<div class="row" style="margin-top:14px"><button class="btn" id="btnSaveW" type="button" disabled>Guardar texto</button></div><div class="msg" id="wmsg" role="alert"></div></article>';
+  const ta = $('wtext'); ta.value = draft;
+  const upd = () => {
+    const w = countWords(ta.value);
+    const okMin = w > 0 && w >= d.min;
+    $('wc').textContent = w + (w === 1 ? ' palabra' : ' palabras') + (d.min ? ' · mínimo ' + d.min : '');
+    $('wc').classList.toggle('ok', okMin);
+    $('btnSaveW').disabled = !okMin;
+    lsSet(key, ta.value);
+  };
+  ta.addEventListener('input', upd); upd();
+  $('btnSaveW').onclick = async () => {
+    $('btnSaveW').disabled = true;
+    const text = ta.value;
+    try {
+      const r = await api('/api/writing', {method: 'POST', body: {deckId: d.deckId, today: today(), text}});
+      lsSet(key, '');
+      $('wcard').innerHTML = '<h2>Texto guardado</h2><p>' + r.words + ' palabras. Se incluirá en tu informe para que una IA lo corrija.</p>' +
+        '<div class="callout">Ahora léelo en voz alta, despacio. Escribir y hablar juntos fijan mejor lo aprendido.</div>' +
+        '<div class="row" style="margin-top:12px"><button class="btn" id="btnToToday" type="button">Ir a mi día</button><button class="btn ghost" id="btnReadMine" type="button">Leer mi texto en voz alta</button><button class="btn ghost" id="btnCopyW" type="button">Copiar mi texto</button><button class="btn ghost" id="btnGoReport" type="button">Ir al informe</button></div><div id="wSlot"></div>';
+      $('btnToToday').onclick = () => goHome('today').catch(() => {});
+      $('btnGoReport').onclick = () => goHome('report').catch(() => {});
+      $('btnCopyW').onclick = async () => { if (await copyText(text)) toast('Texto copiado.', 'good'); };
+      $('btnReadMine').onclick = () => toggleSpeech($('wSlot'), clip(text, 30), d.deckId);
+      toast('Texto guardado.', 'good');
+    } catch (err) {
+      if (err.message === 'auth') return;
+      $('wmsg').className = 'msg bad'; $('wmsg').textContent = err.message; upd(); replay($('wcard'), 'shake');
+    }
+  };
+}
+
+/* ---------- tarjetas y ejercicios ---------- */
+function nextItem() { destroySpeech(); S.cur = S.queue.shift() || null; S.phase = 'answer'; renderStudy(); }
 function meterWidth() { return S.total ? Math.round(S.mastered.size * 100 / S.total) : 0; }
 
 function renderStudy() {
@@ -300,9 +726,8 @@ function renderStudy() {
     area.innerHTML = '<div class="done glass enter" style="margin-top:22px"><h2>' + (n ? 'Sesión terminada' : 'Nada pendiente por ahora') + '</h2>' +
       '<p>' + (n ? 'Acertaste ' + S.ok + ' y fallaste ' + S.bad + '. ' : '') +
       (isCards ? 'Las que acertaste volverán en 1, 3, 7, 14 o 30 días según su caja.' : 'Puedes repetir este mazo cuando quieras.') + '</p>' +
-      '<p class="muted">Para cerrar el día, escribe una nota en la pestaña Progreso y descarga tu informe cuando quieras.</p>' +
-      '<div class="row" style="margin-top:12px"><button class="btn" id="btnDone">Volver a mis mazos</button>' + (!isCards ? '<button class="btn ghost" id="btnAgain">Repetir mazo</button>' : '') + '</div></div>';
-    $('btnDone').onclick = () => loadHome().catch(() => {});
+      '<div class="row" style="margin-top:12px"><button class="btn" id="btnDone">Ir a mi día</button>' + (!isCards ? '<button class="btn ghost" id="btnAgain">Repetir mazo</button>' : '') + '</div></div>';
+    $('btnDone').onclick = () => { S = null; goHome('today').catch(() => {}); };
     if ($('btnAgain')) $('btnAgain').onclick = () => startStudy(S.id).catch(e => toast(e.message, 'bad'));
     return;
   }
@@ -325,7 +750,7 @@ function renderStudy() {
 }
 
 async function submit(skipped) {
-  if (!S.cur || S.phase !== 'answer') return;
+  if (!S || !S.cur || S.phase !== 'answer') return;
   const val = $('ans').value;
   if (!skipped && !val.trim()) return;
   S.phase = 'sending';
@@ -352,8 +777,9 @@ async function submit(skipped) {
     ? '<p>' + esc(r.example) + '</p><p style="font-weight:600">Repite la frase en voz alta 3 veces.</p>'
     : (r.why ? '<p>' + esc(r.why) + '</p>' : '');
   $('fb').innerHTML = '<div class="feedback ' + (r.correct ? '' : 'bad') + '"><strong>' + (r.correct ? 'Correcto: ' : (skipped ? 'Respuesta: ' : 'Casi. La respuesta es: ')) + esc(r.expected) + '</strong>' + extra +
-    '<div class="row" style="margin-top:12px">' + (isCards ? '<button class="btn ghost" id="btnSpeak">Escuchar</button>' : '') + '<button class="btn" id="btnNext">Siguiente</button></div></div>';
+    '<div class="row" style="margin-top:12px">' + (isCards ? '<button class="btn ghost" id="btnSpeak" type="button">Escuchar</button><button class="btn ghost" id="btnPron" type="button">Pronunciar</button>' : '') + '<button class="btn" id="btnNext" type="button">Siguiente</button></div><div id="pronSlot"></div></div>';
   if ($('btnSpeak')) $('btnSpeak').onclick = () => speak(r.example);
+  if ($('btnPron')) $('btnPron').onclick = () => toggleSpeech($('pronSlot'), r.example, S.id);
   $('btnNext').onclick = nextItem;
   setTimeout(() => { const b = $('btnNext'); if (b) b.focus({preventScroll: true}); }, 60);
   if (isCards) speak(r.example);
@@ -365,17 +791,50 @@ document.addEventListener('keydown', e => {
   if (S.phase === 'answer') { e.preventDefault(); submit(false); }
   else if (S.phase === 'result' && !(el && el.tagName === 'BUTTON')) { e.preventDefault(); nextItem(); }
 });
-$('btnBack').onclick = () => loadHome().catch(() => {});
+
+/* ---------- instalación (PWA) ---------- */
+let deferredPrompt = null;
+const isStandalone = () => (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+function updateInstallUI() {
+  const ua = navigator.userAgent || '';
+  const isIos = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  $('btnInstall').hidden = !deferredPrompt;
+  $('btnInstallTop').hidden = !deferredPrompt;
+  $('installText').textContent = isStandalone()
+    ? 'Ya estás usando la app instalada.'
+    : deferredPrompt
+      ? 'Instálala para abrirla desde tu pantalla de inicio, a pantalla completa y con su propio ícono.'
+      : isIos
+        ? 'En iPhone o iPad: toca el botón Compartir y elige «Añadir a pantalla de inicio».'
+        : 'Si tu navegador lo permite, abre su menú y elige «Instalar app» o «Añadir a la pantalla de inicio».';
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; updateInstallUI(); });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; updateInstallUI(); toast('App instalada.', 'good'); });
+async function doInstall() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  try { await deferredPrompt.userChoice; } catch (e) { /* */ }
+  deferredPrompt = null; updateInstallUI();
+}
+$('btnInstall').onclick = doInstall;
+$('btnInstallTop').onclick = doInstall;
+if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
 
 /* ---------- inicio ---------- */
 (async function init() {
-  initTheme();
+  updateInstallUI();
+  initTheme(); initLite(); initMobile();
   authTabs = makeTabs($('authTabs'), name => setMode(name));
   dockTabs = makeTabs($('dockTabs'), name => showPanel(name));
   try { config = await (await fetch('/api/config')).json(); } catch (e) { /* */ }
   $('tabRegister').hidden = Boolean(config.registrationClosed);
   setMode('login');
-  try { const r = await api('/api/me'); user = r.user; await enterApp(); } catch (e) { if (e.message !== 'auth') showAuth(); }
+  try { const r = await api('/api/me'); user = r.user; await enterApp(); }
+  catch (e) {
+    if (e.message === 'auth') return;                 // sin sesión: api() ya mostró el acceso
+    if (e instanceof TypeError) { location.replace('/offline.html'); return; } // sin conexión con el servidor
+    showAuth();
+  }
 })();
 </script>
 </body>
